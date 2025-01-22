@@ -1,4 +1,3 @@
-// dllmain.cpp: определяет точку входа для приложения DLL.
 #include "stdafx.h"
 
 BOOL APIENTRY DllMain( HMODULE hModule,
@@ -8,4 +7,3 @@ BOOL APIENTRY DllMain( HMODULE hModule,
 {
 	return true;
 }
-

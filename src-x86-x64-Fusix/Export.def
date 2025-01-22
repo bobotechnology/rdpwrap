@@ -1,4 +1,4 @@
-LIBRARY   BTREE
+LIBRARY   RDPWRAP
 EXPORTS
    ServiceMain
    SvchostPushServiceGlobals
