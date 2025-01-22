@@ -1,309 +1,181 @@
-### 已知问题：
-- 从Windows 8开始**在平板电脑上**，系统会注销非活动会话 - [更多信息](https://github.com/stascorp/rdpwrap/issues/37)
-- 从Windows 10开始，你可能会意外锁定自己 - [更多信息](https://github.com/stascorp/rdpwrap/issues/50)
-- 从Windows 10家庭版的创作者更新开始，RDP Wrapper将不再工作，声称监听器是`[未监听]`，因为`rfxvmt.dll`缺失 - [更多信息](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111)，[下载链接](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
-- 安装某些更新后，终端服务无法启动或出现“访问被拒绝”问题 - [#215](https://github.com/stascorp/rdpwrap/issues/215)，[#101](https://github.com/stascorp/rdpwrap/issues/101)
-- RDP Wrapper不支持启用RemoteFX的主机 - [#127](https://github.com/stascorp/rdpwrap/issues/127)，[#208](https://github.com/stascorp/rdpwrap/issues/208)，[#216](https://github.com/stascorp/rdpwrap/issues/216)
-- RDP正常工作，但termsrv.dll在登录尝试时崩溃 - Windows Vista Starter RTM x86（termsrv.dll `6.0.6000.16386`）
-- 如果终端服务在启动时挂起，请尝试将**`rdpwrap.dll`**添加到防病毒排除项中。还可以通过以下命令尝试将RDP Wrapper与其他共享服务隔离：
+# RDP Wrapper Library by Stas'M
+
+[![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
+![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010-brightgreen.svg)
+[![Release](https://img.shields.io/github/release/stascorp/rdpwrap.svg)](https://github.com/stascorp/rdpwrap/releases)
+![License](https://img.shields.io/github/license/stascorp/rdpwrap.svg)
+![Downloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/latest/total.svg)
+![TotalDownloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/total.svg)
+
+The goal of this project is to enable Remote Desktop Host support and concurrent RDP sessions on reduced functionality systems for home usage.
+
+RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
+
+[pVistaST]:  http://stascorp.com/images/rdpwrap/pVistaST.jpg
+[pVistaHB]:  http://stascorp.com/images/rdpwrap/pVistaHB.jpg
+[pWin7ST]:   http://stascorp.com/images/rdpwrap/pWin7ST.jpg
+[pWin7HB]:   http://stascorp.com/images/rdpwrap/pWin7HB.jpg
+[pWin8DP]:   http://stascorp.com/images/rdpwrap/pWin8DP.jpg
+[pWin8CP]:   http://stascorp.com/images/rdpwrap/pWin8CP.jpg
+[pWin8RP]:   http://stascorp.com/images/rdpwrap/pWin8RP.jpg
+[pWin8]:     http://stascorp.com/images/rdpwrap/pWin8.jpg
+[pWin81P]:   http://stascorp.com/images/rdpwrap/pWin81P.jpg
+[pWin81]:    http://stascorp.com/images/rdpwrap/pWin81.jpg
+[pWin10TP]:  http://stascorp.com/images/rdpwrap/pWin10TP.jpg
+[pWin10PTP]: http://stascorp.com/images/rdpwrap/pWin10PTP.jpg
+[pWin10]:    http://stascorp.com/images/rdpwrap/pWin10.jpg
+
+[fVistaST]:  http://stascorp.com/images/rdpwrap/VistaST.png
+[fVistaHB]:  http://stascorp.com/images/rdpwrap/VistaHB.png
+[fWin7ST]:   http://stascorp.com/images/rdpwrap/Win7ST.png
+[fWin7HB]:   http://stascorp.com/images/rdpwrap/Win7HB.png
+[fWin8DP]:   http://stascorp.com/images/rdpwrap/Win8DP.png
+[fWin8CP]:   http://stascorp.com/images/rdpwrap/Win8CP.png
+[fWin8RP]:   http://stascorp.com/images/rdpwrap/Win8RP.png
+[fWin8]:     http://stascorp.com/images/rdpwrap/Win8.png
+[fWin81P]:   http://stascorp.com/images/rdpwrap/Win81P.png
+[fWin81]:    http://stascorp.com/images/rdpwrap/Win81.png
+[fWin10TP]:  http://stascorp.com/images/rdpwrap/Win10TP.png
+[fWin10PTP]: http://stascorp.com/images/rdpwrap/Win10PTP.png
+[fWin10]:    http://stascorp.com/images/rdpwrap/Win10.png
+
+| NT Version    | Screenshots |
+| ------------- | ----------- |
+| Windows Vista | [![Windows Vista Starter][pVistaST]][fVistaST] [![Windows Vista Home Basic][pVistaHB]][fVistaHB] |
+| Windows 7     | [![Windows 7 Starter][pWin7ST]][fWin7ST] [![Windows 7 Home Basic][pWin7HB]][fWin7HB] |
+| Windows 8     | [![Windows 8 Developer Preview][pWin8DP]][fWin8DP] [![Windows 8 Consumer Preview][pWin8CP]][fWin8CP] [![Windows 8 Release Preview][pWin8RP]][fWin8RP] [![Windows 8][pWin8]][fWin8] |
+| Windows 8.1   | [![Windows 8.1 Preview][pWin81P]][fWin81P] [![Windows 8.1][pWin81]][fWin81] |
+| Windows 10    | [![Windows 10 Technical Preview][pWin10TP]][fWin10TP] [![Windows 10 Pro Technical Preview][pWin10PTP]][fWin10PTP] [![Windows 10][pWin10]][fWin10] |
+---
+[WinPPE]: http://forums.mydigitallife.info/threads/39411-Windows-Product-Policy-Editor
+
+This solution was inspired by [Windows Product Policy Editor][WinPPE], big thanks to **kost** :)
+
+— binarymaster
+
+### Attention:
+It's recommended to have original termsrv.dll file with the RDP Wrapper installation. If you have modified it before with other patchers, it may become unstable and crash in any moment.
+
+### Information:
+- Source code is available, so you can build it on your own
+- RDP Wrapper does not patch termsrv.dll, it loads termsrv with different parameters
+- RDPWInst and RDPChecker can be redistributed without development folder and batch files
+- RDPWInst can be used for unattended installation / deployment
+- Windows 2000, XP and Server 2003 will not be supported
+
+### Key features:
+- RDP host server on any Windows edition beginning from Vista
+- Console and remote sessions at the same time
+- Using the same user simultaneously for local and remote logon (see configuration app)
+- Up to [15 concurrent sessions](https://github.com/stascorp/rdpwrap/issues/192) (the actual limitation depends on your hardware and OS version)
+- Console and RDP session shadowing (using [Task Manager in Windows 7](http://cdn.freshdesk.com/data/helpdesk/attachments/production/1009641577/original/remote_control.png?1413476051) and lower, and [Remote Desktop Connection in Windows 8](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) and higher)
+- Full [multi-monitor support](https://github.com/stascorp/rdpwrap/issues/163) for RDP host
+- ...and if you find a new feature not listed here, [tell us](https://github.com/stascorp/rdpwrap/issues/new) ;)
+
+### Porting to other platforms:
+- **ARM** for Windows RT (see links below)
+- **IA-64** for Itanium-based Windows Server? *Well, I have no idea* :)
+
+### Building the binaries:
+- **x86 Delphi version** can be built with *Embarcadero RAD Studio 2010*
+- **x86/x64 C++ version** can be built with *Microsoft Visual Studio 2013*
+
+[andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
+[mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
+[xda-dev]:       http://forum.xda-developers.com/showthread.php?t=2093525&page=3
+[yt-offsets]:    http://www.youtube.com/watch?v=FiD86tmRBtk
+
+### Links:
+- Official GitHub repository:
+<br>https://github.com/stascorp/rdpwrap/
+- Official Telegram chat:
+<br>https://t.me/rdpwrap
+- Active discussion in the comments here:
+<br>[Enable remote desktop on Windows 8 core / basic - Andrew Block .net][andrewblock]
+- MDL Projects and Applications thread here:
+<br>[RDP Wrapper Library (works with Windows 8.1 Basic)][mydigitallife]
+- Some ideas about porting to ARM for Windows RT (post #23):
+<br>[\[Q\] Mod Windows RT to enable Remote Desktop][xda-dev]
+- Adding «Remote Desktop Users» group:
+<br>http://superuser.com/questions/680572/
+
+#### Tutorial videos:
+- [How to find offsets for new termsrv.dll versions][yt-offsets]
+
+### Files in release package:
+
+| File name | Description |
+| --------- | ----------- |
+| `RDPWInst.exe`  | RDP Wrapper Library installer/uninstaller |
+| `RDPCheck.exe`  | Local RDP Checker (you can check the RDP is working) |
+| `RDPConf.exe`   | RDP Wrapper Configuration |
+| `install.bat`   | Quick install batch file |
+| `uninstall.bat` | Quick uninstall batch file |
+| `update.bat`    | Quick update batch file |
+
+### Frequently Asked Questions
+
+> Where can I download the installer or binaries?
+
+In the [GitHub Releases](https://github.com/stascorp/rdpwrap/releases) section.
+
+> Is it legal to use this application?
+
+There is no definitive answer, see [this discussion](https://github.com/stascorp/rdpwrap/issues/26).
+
+> The installer tries to access the Internet, is it normal behaviour?
+
+Yes, it works in online mode by default. You may disable it by removing `-o` flag in the `install.bat` file.
+
+> What is online install mode?
+
+Online install mode introduced in version 1.6.1. When you installing RDP Wrapper first time using this mode, it will download [latest INI file](https://github.com/stascorp/rdpwrap/blob/master/res/rdpwrap.ini) from GitHub. See [this discussion](https://github.com/stascorp/rdpwrap/issues/132).
+
+> What is INI file and why we need it?
+
+INI file was introduced in version 1.5. It stores system configuration for RDP Wrapper — general wrapping settings, binary patch codes, and per build specific data. When new `termsrv.dll` build comes out, developer adds support for it by updating INI file in repository.
+
+> Config Tool reports version 1.5, but I installed higher version. What's the matter?
+
+Beginning with version 1.5 the `rdpwrap.dll` is not updated anymore, since all settings are stored in INI file. Deal with it.
+
+> Config Tool shows `[not supported]` and RDP doesn't work. What can I do?
+
+Make sure you're connected to the Internet and run `update.bat`.
+
+> Update doesn't help, it still shows `[not supported]`.
+
+Visit [issues](https://github.com/stascorp/rdpwrap/issues) section, and check whether your `termsrv.dll` build is listed here. If you can't find such issue, create a new — specify your build version for adding to support.
+
+> Why `RDPCheck` doesn't allow to change resolution and other settings?
+
+`RDPCheck` is a very simple application and only for testing purposes. You need to use Microsoft Remote Desktop Client (`mstsc.exe`) if you want to customize the settings. You can use `127.0.0.1` or `127.0.0.2` address for loopback connection.
+
+### Known issues:
+- Beginning with Windows 8 **on tablet PCs** inactive sessions will be logged out by system - [more info](https://github.com/stascorp/rdpwrap/issues/37)
+- Beginning with Windows 10 you can accidentally lock yourself from PC - [more info](https://github.com/stascorp/rdpwrap/issues/50)
+- Beginning with the Creators Update for Windows 10 Home, RDP Wrapper will no longer work, claiming that the listener is `[not listening]` because of `rfxvmt.dll` is missing - [more info](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111), [download links](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
+- Terminal Service does not start after installing some updates or "Access Denied" issue - [#215](https://github.com/stascorp/rdpwrap/issues/215), [#101](https://github.com/stascorp/rdpwrap/issues/101)
+- RDP Wrapper does not work with RemoteFX enabled hosts - [#127](https://github.com/stascorp/rdpwrap/issues/127), [#208](https://github.com/stascorp/rdpwrap/issues/208), [#216](https://github.com/stascorp/rdpwrap/issues/216)
+- RDP works, but termsrv.dll crashes on logon attempt - Windows Vista Starter RTM x86 (termsrv.dll `6.0.6000.16386`)
+- If Terminal Services hangs at startup, try to add **`rdpwrap.dll`** to antivirus exclusions. Also try to isolate RDP Wrapper from other shared services by the command:
 <br>`sc config TermService type= own`
-- RDP Wrapper可能会被AVG Free Antivirus和[Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191)删除 - 首先确保你从GitHub下载了[官方版本](https://github.com/stascorp/rdpwrap/releases)，然后将其添加到排除项中。
+- RDP Wrapper can be removed by AVG Free Antivirus and [Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191) - first make sure you downloaded [official release](https://github.com/stascorp/rdpwrap/releases) from GitHub, then add it to exclusions.
 
 ---
 
-### 安装说明：
-- 下载最新的发布二进制文件并解压文件
-- 右键单击 **`install.bat`** 并选择以管理员身份运行
-- 查看命令输出以获取详细信息
+### Change log:
 
-更新INI文件：
-- 右键单击 **`update.bat`** 并选择以管理员身份运行
-- 查看命令输出以获取详细信息
+Installation instructions:
+- Download latest release binaries and unpack files
+- Right-click on **`install.bat`** and select Run as Administrator
+- See command output for details
 
-卸载：
-- 转到你解压文件的目录
-- 右键单击 **`uninstall.bat`** 并选择以管理员身份运行
-- 查看命令输出以获取详细信息
+To update INI file:
+- Right-click on **`update.bat`** and select Run as Administrator
+- See command output for details
 
-### 确认工作：
-- Windows Vista Starter (x86 - Service Pack 1及更高版本)
-- Windows Vista Home Basic
-- Windows Vista Home Premium
-- Windows Vista Business
-- Windows Vista Enterprise
-- Windows Vista Ultimate
-- Windows Server 2008
-- Windows 7 Starter
-- Windows 7 Home Basic
-- Windows 7 Home Premium
-- Windows 7 Professional
-- Windows 7 Enterprise
-- Windows 7 Ultimate
-- Windows Server 2008 R2
-- Windows 8开发者预览
-- Windows 8消费者预览
-- Windows 8发布预览
-- Windows 8
-- Windows 8单语言版
-- Windows 8专业版
-- Windows 8企业版
-- Windows Server 2012
-- Windows 8.1预览
-- Windows 8.1
-- Windows 8.1连接版（带Bing）
-- Windows 8.1单语言版
-- Windows 8.1连接单语言版（带Bing）
-- Windows 8.1专业版
-- Windows 8.1企业版
-- Windows Server 2012 R2
-- Windows 10技术预览
-- Windows 10专业技术预览
-- Windows 10家庭版
-- Windows 10家庭单语言版
-- Windows 10专业版
-- Windows 10企业版
-- Windows Server 2016技术预览
-
----
-
-### 更新日志：
-
-#### 2017.12.27
-- 版本1.6.2
-- 安装程序更新
-- 包含最新Windows版本的更新INI文件
-- 添加对支持的Windows版本的检查（[#155](https://github.com/stascorp/rdpwrap/issues/155)）
-- 添加从当前目录获取INI文件的功能（[#300](https://github.com/stascorp/rdpwrap/issues/300)）
-- 添加恢复缺失的rfxvmt.dll的功能（在Windows 10家庭版中缺失 [#194](https://github.com/stascorp/rdpwrap/issues/194)）
-- RDP配置更新
-- 添加允许自定义启动程序的功能（[#13 (comment)](https://github.com/stascorp/rdpwrap/issues/13#issuecomment-77651843)）
-- 添加MSI安装包（[#14](https://github.com/stascorp/rdpwrap/issues/14)）
-
-#### 2016.08.01
-- 版本1.6.1
-- 包含最新Windows版本的更新INI文件
-- 安装程序更新
-- 添加在线安装模式
-- 添加卸载时保留设置的功能
-- RDP配置更新
-- 修复RDP端口更改时更新防火墙规则
-- 添加隐藏用户登录的功能
-
-#### 2015.08.12
-- 版本1.6
-- 添加对Windows 10的支持
-- INI文件现在更小 - 所有注释已移至KB文件
-- 安装程序更新
-- 添加1056错误的解决方法（尽管这不是错误）
-- 添加安装程序的更新支持
-- 最新的RDPClip版本包含在安装程序中
-- RDP检查器更新
-- 更改连接IP为127.0.0.2
-- 更新一些文本消息
-- RDP配置更新
-- 添加所有可能的投影模式
-- 还会将设置写入组策略
-
-#### 2014.12.11
-- 版本1.5
-- 添加INI配置支持
-- 配置现在存储在INI文件中
-- 我们可以在不构建新二进制文件的情况下扩展版本支持
-- 添加对Windows 8.1和KB3000850的支持
-- 添加对Windows 10技术预览更新2的支持
-- 安装程序更新
-- RDP配置更新
-- 添加诊断功能到RDP配置
-
-#### 2014.11.14
-- 版本1.4
-- 添加对Windows 10技术预览更新1的支持
-- 添加对Windows Vista SP2和KB3003743的支持
-- 添加对Windows 7 SP1和KB3003743的支持
-- 添加新的RDP配置程序
-
-#### 2014.10.21
-- 安装程序更新
-- 添加将RDP Wrapper安装到System32目录的功能
-- 修复安装程序中的问题 - NLA设置现在保持不变
-- 本地RDP检查器更新
-- 在检查开始时更改SecurityLayer和UserAuthentification值
-- RDP检查器在退出时恢复值
-
-#### 2014.10.20
-- 版本1.3
-- 添加对Windows 10技术预览的支持
-- 添加对Windows 7和KB2984972的支持
-- 添加对Windows 8和KB2973501的支持
-- 添加对Windows Vista（SP0、SP1和SP2）的扩展支持
-- 添加对Windows 7（SP0和SP1）的扩展支持
-- 源代码中的一些改进
-- 安装程序更新到v2.2
-- 修复Vista x64中的安装错误（错误的展开路径）
-- 本地RDP检查器更新
-- 为错误0x708添加描述
-
-#### 2014.07.26
-- 版本1.2
-- 添加对Windows 8开发者预览的支持
-- 添加对Windows 8消费者预览的支持
-- 添加对Windows 8发布预览的支持
-- 添加对Windows 8.1预览的支持
-- 添加对Windows 8.1的支持
-- 源代码中更多详细信息
-- 安装程序更新到v2.1
-
-#### 2013.12.09
-- RDP Wrapper的C++移植由Fusix完成
-- 现在支持x64架构
-- 添加新的命令行安装程序v2.0
-- 添加本地RDP检查器
-- 源代码（C++移植、安装程序2.0、本地RDP检查器）也包含在内
-
-#### 2013.10.25
-- 版本1.1源代码可用
-
-#### 2013.10.22
-- 版本1.1
-- 稳定版本
-- 改进的包装器（现在可以包装内部未导出的termsrv.dll SL策略函数）
-- 添加对Windows 8单语言版的支持（在带有Intel Atom Z2760的Acer平板电脑上测试）
-
-#### 2013.10.19
-- 版本1.0
-- 第一个[beta]版本
-- 基本的SL政策包装器
-
----
-
-#### 支持的终端服务版本：
-- 6.0.X.X（Windows Vista / Server 2008）
-- 6.0.6000.16386（Windows Vista）
-- 6.0.6001.18000（Windows Vista SP1）
-- 6.0.6002.18005（Windows Vista SP2）
-- 6.0.6002.19214（Windows Vista SP2与KB3003743 GDR）
-- 6.0.6002.23521（Windows Vista SP2与KB3003743 LDR）
-- 6.1.X.X（Windows 7 / Server 2008 R2）
-- 6.1.7600.16385（Windows 7）
-- 6.1.7600.20890（Windows 7与KB2479710）
-- 6.1.7600.21316（Windows 7与KB2750090）
-- 6.1.7601.17514（Windows 7 SP1）
-- 6.1.7601.21650（Windows 7 SP1与KB2479710）
-- 6.1.7601.21866（Windows 7 SP1与KB2647409）
-- 6.1.7601.22104（Windows 7 SP1与KB2750090）
-- 6.1.7601.18540（Windows 7 SP1与KB2984972 GDR）
-- 6.1.7601.22750（Windows 7 SP1与KB2984972 LDR）
-- 6.1.7601.18637（Windows 7 SP1与KB3003743 GDR）
-- 6.1.7601.22843（Windows 7 SP1与KB3003743 LDR）
-- 6.1.7601.23403（Windows 7 SP1与KB3125574）
-- 6.1.7601.24234（Windows 7 SP1与KB4462923）
-- 6.2.8102.0（Windows 8开发者预览）
-- 6.2.8250.0（Windows 8消费者预览）
-- 6.2.8400.0（Windows 8发布预览）
-- 6.2.9200.16384（Windows 8 / Server 2012）
-- 6.2.9200.17048（Windows 8与KB2973501 GDR）
-- 6.2.9200.21166（Windows 8与KB2973501 LDR）
-- 6.3.9431.0（Windows 8.1预览）
-- 6.3.9600.16384（Windows 8.1 / Server 2012 R2）
-- 6.3.9600.17095（Windows 8.1与KB2959626）
-- 6.3.9600.17415（Windows 8.1与KB3000850）
-- 6.3.9600.18692（Windows 8.1与KB4022720）
-- 6.3.9600.18708（Windows 8.1与KB4025335）
-- 6.3.9600.18928（Windows 8.1与KB4088876）
-- 6.3.9600.19093（Windows 8.1与KB4343891）
-- 6.4.9841.0（Windows 10技术预览）
-- 6.4.9860.0（Windows 10技术预览更新1）
-- 6.4.9879.0（Windows 10技术预览更新2）
-- 10.0.9926.0（Windows 10专业技术预览）
-- 10.0.10041.0（Windows 10专业技术预览更新1）
-- 10.0.10240.16384（Windows 10 RTM）
-- 10.0.10586.0（Windows 10 TH2发布151029-1700）
-- 10.0.10586.589（Windows 10 TH2发布160906-1759与KB3185614）
-- 10.0.11082.1000（Windows 10 RS1发布151210-2021）
-- 10.0.11102.1000（Windows 10 RS1发布160113-1800）
-- 10.0.14251.1000（Windows 10 RS1发布160124-1059）
-- 10.0.14271.1000（Windows 10 RS1发布160218-2310）
-- 10.0.14279.1000（Windows 10 RS1发布160229-1700）
-- 10.0.14295.1000（Windows 10 RS1发布160318-1628）
-- 10.0.14300.1000（Windows Server 2016技术预览5）
-- 10.0.14316.1000（Windows 10 RS1发布160402-2227）
-- 10.0.14328.1000（Windows 10 RS1发布160418-1609）
-- 10.0.14332.1001（Windows 10 RS1发布160422-1940）
-- 10.0.14342.1000（Windows 10 RS1发布160506-1708）
-- 10.0.14352.1002（Windows 10 RS1发布160522-1930）
-- 10.0.14366.0（Windows 10 RS1发布160610-1700）
-- 10.0.14367.0（Windows 10 RS1发布160613-1700）
-- 10.0.14372.0（Windows 10 RS1发布160620-2342）
-- 10.0.14379.0（Windows 10 RS1发布160627-1607）
-- 10.0.14383.0（Windows 10 RS1发布160701-1839）
-- 10.0.14385.0（Windows 10 RS1发布160706-1700）
-- 10.0.14388.0（Windows 10 RS1发布160709-1635）
-- 10.0.14393.0（Windows 10 RS1发布160715-1616）
-- 10.0.14393.1198（Windows 10 RS1发布安全版170427-1353与KB4019472）
-- 10.0.14393.1737（Windows 10 RS1发布市场版170914-1249与KB4041691）
-- 10.0.14393.2457（Windows 10 RS1发布市场版180822-1743与KB4343884）
-- 10.0.14901.1000（Windows 10 RS预发布160805-1700）
-- 10.0.14905.1000（Windows 10 RS预发布160811-1739）
-- 10.0.14915.1000（Windows 10 RS预发布160826-1902）
-- 10.0.14926.1000（Windows 10 RS预发布160910-1529）
-- 10.0.14931.1000（Windows 10 RS预发布160916-1700）
-- 10.0.14936.1000（Windows 10 RS预发布161003-1929）
-- 10.0.14946.1000（Windows 10 RS预发布161007-1700）
-- 10.0.14951.1000（Windows 10 RS预发布161014-1700）
-- 10.0.14955.1000（Windows 10 RS预发布161020-1700）
-- 10.0.14959.1000（Windows 10 RS预发布161026-1700）
-- 10.0.14965.1001（Windows 10 RS预发布161104-1700）
-- 10.0.14971.1000（Windows 10 RS预发布161111-1700）
-- 10.0.14986.1000（Windows 10构建160101.0800）
-- 10.0.14997.1001（Windows 10构建160101.0800）
-- 10.0.15002.1001（Windows 10构建160101.0800）
-- 10.0.15007.1000（Windows 10构建160101.0800）
-- 10.0.15014.1000（Windows 10构建160101.0800）
-- 10.0.15019.1000（Windows 10 RS预发布170121-1513）
-- 10.0.15025.1000（Windows 10 RS预发布170127-1750）
-- 10.0.15031.0（Windows 10 RS2发布170204-1546）
-- 10.0.15042.0（Windows 10 RS2发布170219-2329）
-- 10.0.15046.0（Windows 10构建160101.0800）
-- 10.0.15048.0（Windows 10构建160101.0800）
-- 10.0.15055.0（Windows 10构建160101.0800）
-- 10.0.15058.0（Windows 10构建160101.0800）
-- 10.0.15061.0（Windows 10构建160101.0800）
-- 10.0.15063.0（Windows 10构建160101.0800）
-- 10.0.15063.296（Windows 10构建160101.0800）
-- 10.0.15063.994（Windows 10构建160101.0800）
-- 10.0.15063.1155（Windows 10构建160101.0800）
-- 10.0.16179.1000（Windows 10构建160101.0800）
-- 10.0.16184.1001（Windows 10构建160101.0800）
-- 10.0.16199.1000（Windows 10构建160101.0800）
-- 10.0.16215.1000（Windows 10构建160101.0800）
-- 10.0.16232.1000（Windows 10构建160101.0800）
-- 10.0.16237.1001（Windows 10构建160101.0800）
-- 10.0.16241.1001（Windows 10构建160101.0800）
-- 10.0.16251.0（Windows 10构建160101.0800）
-- 10.0.16251.1000（Windows 10构建160101.0800）
-- 10.0.16257.1（Windows 10构建160101.0800）
-- 10.0.16257.1000（Windows 10构建160101.0800）
-- 10.0.16273.1000（Windows 10构建160101.0800）
-- 10.0.16275.1000（Windows 10构建160101.0800）
-- 10.0.16278.1000（Windows 10构建160101.0800）
-- 10.0.16281.1000（Windows 10构建160101.0800）
-- 10.0.16288.1（Windows 10构建160101.0800）
-- 10.0.16291.0（Windows 10构建160101.0800）
-- 10.0.16294.1（Windows 10构建160101.0800）
-- 10.0.16296.0（Windows 10构建160101.0800）
-- 10.0.16299.0（Windows 10构建160101.0800）
-- 10.0.16299.15（Windows 10构建160101.0800）
-- 10.0.16353.1000（Windows 10构建160101.0800）
-- 10.0.16362.1000（Windows 10构建160101.0800）
-- 10.0.17004.1000（Windows 10构建160101.0800）
-- 10.0.17017.1000（Windows 10构建160101.0800）
-- 10.0.17025.1000（Windows 10构建160101.0800）
-- 10.0.17035.1000（Windows 10构建160101.0800）
-- 10.0.17046.1000（Windows 10构建160101.0800）
-- 10.0.17063.1000（Windows 10构建160101.0800）
-- 10.0.17115.1（Windows 10构建160101.0800）
-- 10.0.17128.1（Windows 10构建160101.0800）
-- 10.0.17133.1（Windows 10构建160101.0800）
-- 10.0.17134.1（Windows 10构建160101.0800）
-- 10.0.17723.1000（Windows 10构建160101.0800）
-- 10.0.17763.1（Windows 10构建160101.0800）
+To uninstall:
+- Go to the directory where you extracted the files
+- Right-click on **`uninstall.bat`** and select Run as Administrator
+- See command output for details
