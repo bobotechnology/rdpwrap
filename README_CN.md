@@ -163,18 +163,18 @@ INI 文件在版本 1.5 中引入。它存储 RDP Wrapper 的系统配置——�
 
 ---
 
-### Change log:
+### 更新日志：
 
-Installation instructions:
-- Download latest release binaries and unpack files
-- Right-click on **`install.bat`** and select Run as Administrator
-- See command output for details
+### 安装说明：
+- 下载最新版本的二进制文件并解压
+- 右键点击 **`install.bat`** 并选择“以管理员身份运行”
+- 查看命令输出以获取详细信息
 
-To update INI file:
-- Right-click on **`update.bat`** and select Run as Administrator
-- See command output for details
+更新 INI 文件：
+- 右键点击 **`update.bat`** 并选择“以管理员身份运行”
+- 查看命令输出以获取详细信息
 
-To uninstall:
-- Go to the directory where you extracted the files
-- Right-click on **`uninstall.bat`** and select Run as Administrator
-- See command output for details
+卸载：
+- 进入你解压文件的目录
+- 右键点击 **`uninstall.bat`** 并选择“以管理员身份运行”
+- 查看命令输出以获取详细信息
