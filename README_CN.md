@@ -150,16 +150,16 @@ INI 文件在版本 1.5 中引入。它存储 RDP Wrapper 的系统配置——�
 
 `RDPCheck` 是一个非常简单的应用程序，仅用于测试目的。如果您想自定义设置，需要使用 Microsoft 远程桌面客户端 (`mstsc.exe`)。您可以使用 `127.0.0.1` 或 `127.0.0.2` 地址进行本地连接。
 
-### Known issues:
-- Beginning with Windows 8 **on tablet PCs** inactive sessions will be logged out by system - [more info](https://github.com/stascorp/rdpwrap/issues/37)
-- Beginning with Windows 10 you can accidentally lock yourself from PC - [more info](https://github.com/stascorp/rdpwrap/issues/50)
-- Beginning with the Creators Update for Windows 10 Home, RDP Wrapper will no longer work, claiming that the listener is `[not listening]` because of `rfxvmt.dll` is missing - [more info](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111), [download links](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
-- Terminal Service does not start after installing some updates or "Access Denied" issue - [#215](https://github.com/stascorp/rdpwrap/issues/215), [#101](https://github.com/stascorp/rdpwrap/issues/101)
-- RDP Wrapper does not work with RemoteFX enabled hosts - [#127](https://github.com/stascorp/rdpwrap/issues/127), [#208](https://github.com/stascorp/rdpwrap/issues/208), [#216](https://github.com/stascorp/rdpwrap/issues/216)
-- RDP works, but termsrv.dll crashes on logon attempt - Windows Vista Starter RTM x86 (termsrv.dll `6.0.6000.16386`)
-- If Terminal Services hangs at startup, try to add **`rdpwrap.dll`** to antivirus exclusions. Also try to isolate RDP Wrapper from other shared services by the command:
+### 已知问题：
+- 从 Windows 8 **在平板电脑上**开始，系统将自动注销非活动会话 - [更多信息](https://github.com/stascorp/rdpwrap/issues/37)
+- 从 Windows 10 开始，您可能会意外锁定自己无法访问 PC - [更多信息](https://github.com/stascorp/rdpwrap/issues/50)
+- 从 Windows 10 家庭版的创作者更新开始，RDP Wrapper 将不再工作，声称监听器为 `[not listening]`，因为 `rfxvmt.dll` 缺失 - [更多信息](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111)，[下载链接](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
+- 安装某些更新后，终端服务无法启动或出现“访问被拒绝”问题 - [#215](https://github.com/stascorp/rdpwrap/issues/215)，[#101](https://github.com/stascorp/rdpwrap/issues/101)
+- RDP Wrapper 不支持启用 RemoteFX 的主机 - [#127](https://github.com/stascorp/rdpwrap/issues/127)，[#208](https://github.com/stascorp/rdpwrap/issues/208)，[#216](https://github.com/stascorp/rdpwrap/issues/216)
+- RDP 可以使用，但在登录尝试时 termsrv.dll 崩溃 - Windows Vista Starter RTM x86 (termsrv.dll `6.0.6000.16386`)
+- 如果终端服务在启动时挂起，请尝试将 **`rdpwrap.dll`** 添加到防病毒软件的排除列表中。还可以通过以下命令将 RDP Wrapper 与其他共享服务隔离：
 <br>`sc config TermService type= own`
-- RDP Wrapper can be removed by AVG Free Antivirus and [Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191) - first make sure you downloaded [official release](https://github.com/stascorp/rdpwrap/releases) from GitHub, then add it to exclusions.
+- RDP Wrapper 可能会被 AVG Free Antivirus 和 [Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191) 删除 - 首先确保您从 GitHub 下载了 [官方版本](https://github.com/stascorp/rdpwrap/releases)，然后将其添加到排除列表中。
 
 ---
 
