@@ -1,4 +1,4 @@
-# RDP Wrapper Library by Stas'M
+# Third Party RDP Wrapper Library by bobo
 
 [![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
 ![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010-brightgreen.svg)
@@ -6,6 +6,8 @@
 ![License](https://img.shields.io/github/license/stascorp/rdpwrap.svg)
 ![Downloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/latest/total.svg)
 ![TotalDownloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/total.svg)
+
+#### All thanks for RDP Wrapper Library to: [stascorp](https://github.com/stascorp/rdpwrap)
 
 The goal of this project is to enable Remote Desktop Host support and concurrent RDP sessions on reduced functionality systems for home usage.
 

@@ -1,4 +1,4 @@
-# RDP Wrapper Library by Stas'M
+# Third Party RDP Wrapper Library by bobo
 
 [![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
 ![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010-brightgreen.svg)
@@ -7,9 +7,11 @@
 ![Downloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/latest/total.svg)
 ![TotalDownloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/total.svg)
 
-The goal of this project is to enable Remote Desktop Host support and concurrent RDP sessions on reduced functionality systems for home usage.
+#### 所有感谢都归功于 RDP Wrapper 库的：[stascorp](https://github.com/stascorp/rdpwrap)
 
-RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
+这个项目的目标是为家庭用户在功能受限的系统上启用远程桌面主机支持和并发 RDP 会话。
+
+RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此原始的 termsrv.dll 文件保持不变。此外，这种方法，即使Windows更新也不受到影响。
 
 [pVistaST]:  http://stascorp.com/images/rdpwrap/pVistaST.jpg
 [pVistaHB]:  http://stascorp.com/images/rdpwrap/pVistaHB.jpg
@@ -39,7 +41,7 @@ RDP Wrapper works as a layer between Service Control Manager and Terminal Servic
 [fWin10PTP]: http://stascorp.com/images/rdpwrap/Win10PTP.png
 [fWin10]:    http://stascorp.com/images/rdpwrap/Win10.png
 
-| NT Version    | Screenshots |
+| NT 版本    | 截图 |
 | ------------- | ----------- |
 | Windows Vista | [![Windows Vista Starter][pVistaST]][fVistaST] [![Windows Vista Home Basic][pVistaHB]][fVistaHB] |
 | Windows 7     | [![Windows 7 Starter][pWin7ST]][fWin7ST] [![Windows 7 Home Basic][pWin7HB]][fWin7HB] |
@@ -49,107 +51,104 @@ RDP Wrapper works as a layer between Service Control Manager and Terminal Servic
 ---
 [WinPPE]: http://forums.mydigitallife.info/threads/39411-Windows-Product-Policy-Editor
 
-This solution was inspired by [Windows Product Policy Editor][WinPPE], big thanks to **kost** :)
+这个解决方案的灵感来源于 [Windows 产品策略编辑器][WinPPE]，非常感谢 **kost** :)
 
 — binarymaster
 
-### Attention:
-It's recommended to have original termsrv.dll file with the RDP Wrapper installation. If you have modified it before with other patchers, it may become unstable and crash in any moment.
+### 注意：
+建议在安装 RDP Wrapper 时保留原始的 termsrv.dll 文件。如果您之前使用其他补丁程序修改过它，它可能会变得不稳定并随时崩溃。
 
-### Information:
-- Source code is available, so you can build it on your own
-- RDP Wrapper does not patch termsrv.dll, it loads termsrv with different parameters
-- RDPWInst and RDPChecker can be redistributed without development folder and batch files
-- RDPWInst can be used for unattended installation / deployment
-- Windows 2000, XP and Server 2003 will not be supported
+### 信息：
+- 源代码是可用的，因此您可以自行构建
+- RDP Wrapper 不会直接修改 termsrv.dll，而是使用不同的参数来加载它，以确保原始文件保持不变。
+- RDPWInst 和 RDPChecker 可以在没有开发文件夹和批处理文件的情况下重新分发
+- RDPWInst 可用于无人值守安装/部署
+- 不支持 Windows 2000、XP 和 Server 2003
 
-### Key features:
-- RDP host server on any Windows edition beginning from Vista
-- Console and remote sessions at the same time
-- Using the same user simultaneously for local and remote logon (see configuration app)
-- Up to [15 concurrent sessions](https://github.com/stascorp/rdpwrap/issues/192) (the actual limitation depends on your hardware and OS version)
-- Console and RDP session shadowing (using [Task Manager in Windows 7](http://cdn.freshdesk.com/data/helpdesk/attachments/production/1009641577/original/remote_control.png?1413476051) and lower, and [Remote Desktop Connection in Windows 8](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) and higher)
-- Full [multi-monitor support](https://github.com/stascorp/rdpwrap/issues/163) for RDP host
-- ...and if you find a new feature not listed here, [tell us](https://github.com/stascorp/rdpwrap/issues/new) ;)
+### 主要特性：
+- 在从 Vista 开始的任何 Windows 版本上作为 RDP 主机服务器
+- 控制台会话和 RDP 会话可以同时进行
+- 同时使用同一用户进行本地和远程登录（请参见配置应用程序）
+- 支持最多 [15 个并发会话](https://github.com/stascorp/rdpwrap/issues/192)（实际限制取决于您的硬件和操作系统版本）
+- 控制台和 RDP 会话 影子模式（使用 [Windows 7 中的任务管理器](https://img.picui.cn/free/2025/01/22/679110d27de7b.png) 及更低版本，以及 [Windows 8 中的远程桌面连接](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) 及更高版本）
+- 完整的 [多显示器支持](https://github.com/stascorp/rdpwrap/issues/163) 适用于 RDP 主机
+- ...如果您发现这里未列出的新功能，请 [告诉我们](https://github.com/stascorp/rdpwrap/issues/new) ;)
 
-### Porting to other platforms:
-- **ARM** for Windows RT (see links below)
-- **IA-64** for Itanium-based Windows Server? *Well, I have no idea* :)
 
-### Building the binaries:
-- **x86 Delphi version** can be built with *Embarcadero RAD Studio 2010*
-- **x86/x64 C++ version** can be built with *Microsoft Visual Studio 2013*
+### 移植到其他平台：
+- **ARM** 用于 Windows RT（请参见下面的链接）
+- **IA-64** 用于基于 Itanium 的 Windows Server？*嗯，我不知道* :)
+
+### 构建二进制文件：
+- **x86 Delphi 版本** 可以使用 *Embarcadero RAD Studio 2010* 构建
+- **x86/x64 C++ 版本** 可以使用 *Microsoft Visual Studio 2022* 构建
 
 [andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
 [mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
 [xda-dev]:       http://forum.xda-developers.com/showthread.php?t=2093525&page=3
 [yt-offsets]:    http://www.youtube.com/watch?v=FiD86tmRBtk
 
-### Links:
-- Official GitHub repository:
+### 链接：
+- 官方 GitHub 仓库：
 <br>https://github.com/stascorp/rdpwrap/
-- Official Telegram chat:
+- 官方 Telegram 聊天：
 <br>https://t.me/rdpwrap
-- Active discussion in the comments here:
-<br>[Enable remote desktop on Windows 8 core / basic - Andrew Block .net][andrewblock]
-- MDL Projects and Applications thread here:
-<br>[RDP Wrapper Library (works with Windows 8.1 Basic)][mydigitallife]
-- Some ideas about porting to ARM for Windows RT (post #23):
-<br>[\[Q\] Mod Windows RT to enable Remote Desktop][xda-dev]
-- Adding «Remote Desktop Users» group:
+- 此处的活跃讨论：
+<br>[在 Windows 8 核心/基本版上启用远程桌面 - Andrew Block .net][andrewblock]
+- 此处的 MDL 项目和应用线程：
+<br>[RDP Wrapper 库（适用于 Windows 8.1 基本版）][mydigitallife]
+- 关于在 Windows RT 上移植到 ARM 的一些想法（帖子 #23）：
+<br>[\[Q\] 修改 Windows RT 以启用远程桌面][xda-dev]
+- 添加 «远程桌面用户» 组：
 <br>http://superuser.com/questions/680572/
 
-#### Tutorial videos:
-- [How to find offsets for new termsrv.dll versions][yt-offsets]
+#### 教程视频：
+- [如何找到新版本 termsrv.dll 的偏移量][yt-offsets]
 
-### Files in release package:
+### 发布包中的文件：
 
-| File name | Description |
+| 文件名 | 描述 |
 | --------- | ----------- |
-| `RDPWInst.exe`  | RDP Wrapper Library installer/uninstaller |
-| `RDPCheck.exe`  | Local RDP Checker (you can check the RDP is working) |
-| `RDPConf.exe`   | RDP Wrapper Configuration |
-| `install.bat`   | Quick install batch file |
-| `uninstall.bat` | Quick uninstall batch file |
-| `update.bat`    | Quick update batch file |
+| `RDPWInst.exe`  | RDP Wrapper 库安装程序/卸载程序 |
+| `RDPCheck.exe`  | 本地 RDP 检查工具（您可以检查 RDP 是否正常工作） |
+| `RDPConf.exe`   | RDP Wrapper 配置工具 |
+| `install.bat`   | 快速安装批处理文件 |
+| `uninstall.bat` | 快速卸载批处理文件 |
+| `update.bat`    | 快速更新批处理文件 |
 
-### Frequently Asked Questions
+### 常见问题解答
 
-> Where can I download the installer or binaries?
+> 我在哪里可以下载安装程序或二进制文件？
 
-In the [GitHub Releases](https://github.com/stascorp/rdpwrap/releases) section.
+在 [GitHub Releases](https://github.com/stascorp/rdpwrap/releases) 部分。
 
-> Is it legal to use this application?
+> 使用这个应用程序是否合法？
 
-There is no definitive answer, see [this discussion](https://github.com/stascorp/rdpwrap/issues/26).
+没有明确的答案，请参见 [这个讨论](https://github.com/stascorp/rdpwrap/issues/26)。
 
-> The installer tries to access the Internet, is it normal behaviour?
+> 安装程序尝试访问互联网，这正常吗？
 
-Yes, it works in online mode by default. You may disable it by removing `-o` flag in the `install.bat` file.
+是的，默认情况下它在在线模式下工作。您可以通过在 `install.bat` 文件中删除 `-o` 标志来禁用它。
 
-> What is online install mode?
+> 什么是在线安装模式？
 
-Online install mode introduced in version 1.6.1. When you installing RDP Wrapper first time using this mode, it will download [latest INI file](https://github.com/stascorp/rdpwrap/blob/master/res/rdpwrap.ini) from GitHub. See [this discussion](https://github.com/stascorp/rdpwrap/issues/132).
+在线安装模式在版本 1.6.1 中引入。当您第一次使用此模式安装 RDP Wrapper 时，它将从 GitHub 下载 [最新的 INI 文件](https://github.com/stascorp/rdpwrap/blob/master/res/rdpwrap.ini)。请参见 [这个讨论](https://github.com/stascorp/rdpwrap/issues/132)。
 
-> What is INI file and why we need it?
+> 什么是 INI 文件，我们为什么需要它？
 
-INI file was introduced in version 1.5. It stores system configuration for RDP Wrapper — general wrapping settings, binary patch codes, and per build specific data. When new `termsrv.dll` build comes out, developer adds support for it by updating INI file in repository.
+INI 文件在版本 1.5 中引入。它存储 RDP Wrapper 的系统配置——一般包装设置、二进制补丁代码和每个构建特定的数据。当新的 `termsrv.dll` 构建发布时，开发者通过更新存储库中的 INI 文件来添加对其的支持。
 
-> Config Tool reports version 1.5, but I installed higher version. What's the matter?
+> 配置工具显示 `[not supported]`，RDP 无法工作。我该怎么办？
 
-Beginning with version 1.5 the `rdpwrap.dll` is not updated anymore, since all settings are stored in INI file. Deal with it.
+确保您已连接到互联网并运行 `update.bat`。
 
-> Config Tool shows `[not supported]` and RDP doesn't work. What can I do?
+> 更新没有帮助，仍然显示 `[not supported]`。
 
-Make sure you're connected to the Internet and run `update.bat`.
+访问 [issues](https://github.com/stascorp/rdpwrap/issues) 部分，检查您的 `termsrv.dll` 构建是否在此列出。如果找不到相关问题，请创建一个新问题——指定您的构建版本以便添加支持。
 
-> Update doesn't help, it still shows `[not supported]`.
+> 为什么 `RDPCheck` 不允许更改分辨率和其他设置？
 
-Visit [issues](https://github.com/stascorp/rdpwrap/issues) section, and check whether your `termsrv.dll` build is listed here. If you can't find such issue, create a new — specify your build version for adding to support.
-
-> Why `RDPCheck` doesn't allow to change resolution and other settings?
-
-`RDPCheck` is a very simple application and only for testing purposes. You need to use Microsoft Remote Desktop Client (`mstsc.exe`) if you want to customize the settings. You can use `127.0.0.1` or `127.0.0.2` address for loopback connection.
+`RDPCheck` 是一个非常简单的应用程序，仅用于测试目的。如果您想自定义设置，需要使用 Microsoft 远程桌面客户端 (`mstsc.exe`)。您可以使用 `127.0.0.1` 或 `127.0.0.2` 地址进行本地连接。
 
 ### Known issues:
 - Beginning with Windows 8 **on tablet PCs** inactive sessions will be logged out by system - [more info](https://github.com/stascorp/rdpwrap/issues/37)
