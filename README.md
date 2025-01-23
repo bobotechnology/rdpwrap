@@ -137,10 +137,6 @@ Online install mode introduced in version 1.6.1. When you installing RDP Wrapper
 
 INI file was introduced in version 1.5. It stores system configuration for RDP Wrapper — general wrapping settings, binary patch codes, and per build specific data. When new `termsrv.dll` build comes out, developer adds support for it by updating INI file in repository.
 
-> Config Tool reports version 1.5, but I installed higher version. What's the matter?
-
-Beginning with version 1.5 the `rdpwrap.dll` is not updated anymore, since all settings are stored in INI file. Deal with it.
-
 > Config Tool shows `[not supported]` and RDP doesn't work. What can I do?
 
 Make sure you're connected to the Internet and run `update.bat`.
