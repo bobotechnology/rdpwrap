@@ -1,27 +1,22 @@
 {
   Copyright 2017 Stas'M Corp.
-
+  Copyright 2021 sebaxakerhtc
+  Copyright 2024 bobo
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
-
       http://www.apache.org/licenses/LICENSE-2.0
-
   Unless required by applicable law or agreed to in writing, software
   distributed under the License is distributed on an "AS IS" BASIS,
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
 }
-
 unit MainUnit;
-
 interface
-
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs, StdCtrls, Spin, ExtCtrls, Registry, WinSvc;
-
+  Dialogs, StdCtrls, Spin, ExtCtrls, WinSvc, Registry, ShellAPI;
 type
   TMainForm = class(TForm)
     bOK: TButton;
@@ -50,6 +45,14 @@ type
     cbHideUsers: TCheckBox;
     gbGeneral: TGroupBox;
     cbCustomPrg: TCheckBox;
+    gbLocalRDPChecker: TGroupBox;
+    bmstsc: TButton;
+    b800x600: TButton;
+    b1024x768: TButton;
+    b1366x768: TButton;
+    b1920x1080: TButton;
+    bUpdateINI: TButton;
+    bRestartTS: TButton;
     procedure FormCreate(Sender: TObject);
     procedure cbAllowTSConnectionsClick(Sender: TObject);
     procedure seRDPPortChange(Sender: TObject);
@@ -60,6 +63,14 @@ type
     procedure bLicenseClick(Sender: TObject);
     procedure TimerTimer(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
+    procedure bmstscClick(Sender: TObject);
+    procedure b800x600Click(Sender: TObject);
+    procedure b1024x768Click(Sender: TObject);
+    procedure b1366x768Click(Sender: TObject);
+    procedure b1920x1080Click(Sender: TObject);
+    procedure bUpdateINIClick(Sender: TObject);
+    procedure bRestartTSClick(Sender: TObject);
+    procedure RestartThisApp;
   private
     { Private declarations }
   public
@@ -85,9 +96,9 @@ type
   end;
   WTS_SESSION = Array[0..0] of WTS_SESSION_INFOW;
   PWTS_SESSION_INFOW = ^WTS_SESSION;
-
 const
   winstadll = 'winsta.dll';
+  MaxRetries = 3; // Maximum number of retries
 var
   MainForm: TMainForm;
   Ready: Boolean = False;
@@ -95,20 +106,17 @@ var
   OldWow64RedirectionValue: LongBool;
   OldPort: Word;
   INI: String;
-
+  RetryCount: Integer;
+  Success: Boolean;
 function WinStationEnumerateW(hServer: THandle;
   var ppSessionInfo: PWTS_SESSION_INFOW; var pCount: DWORD): BOOL; stdcall;
   external winstadll name 'WinStationEnumerateW';
 function WinStationFreeMemory(P: Pointer): BOOL; stdcall; external winstadll;
-
 implementation
-
 {$R *.dfm}
 {$R resource.res}
-
 uses
-  LicenseUnit;
-
+  LicenseUnit, WindowsDarkMode;
 function ExpandPath(Path: String): String;
 var
   Str: Array[0..511] of Char;
@@ -120,7 +128,6 @@ begin
   if ExpandEnvironmentStrings(PWideChar(Path), Str, 512) > 0 then
     Result := Str;
 end;
-
 function DisableWowRedirection: Boolean;
 type
   TFunc = function(var Wow64FsEnableRedirection: LongBool): LongBool; stdcall;
@@ -137,7 +144,6 @@ begin
   if @Wow64DisableWow64FsRedirection <> nil then
     Result := Wow64DisableWow64FsRedirection(OldWow64RedirectionValue);
 end;
-
 function RevertWowRedirection: Boolean;
 type
   TFunc = function(var Wow64RevertWow64FsRedirection: LongBool): LongBool; stdcall;
@@ -154,7 +160,6 @@ begin
   if @Wow64RevertWow64FsRedirection <> nil then
     Result := Wow64RevertWow64FsRedirection(OldWow64RedirectionValue);
 end;
-
 function GetFileVersion(const FileName: TFileName; var FileVersion: FILE_VERSION): Boolean;
 type
   VS_VERSIONINFO = record
@@ -176,19 +181,15 @@ var
   VersionInfo: PVS_VERSIONINFO;
 begin
   Result := False;
-
   hFile := LoadLibraryEx(PWideChar(FileName), 0, LOAD_LIBRARY_AS_DATAFILE);
   if hFile = 0 then
     Exit;
-
   hResourceInfo := FindResource(hFile, PWideChar(1), PWideChar($10));
   if hResourceInfo = 0 then
     Exit;
-
   VersionInfo := Pointer(LoadResource(hFile, hResourceInfo));
   if VersionInfo = nil then
     Exit;
-
   FileVersion.Version.dw := VersionInfo.Value.dwFileVersionMS;
   FileVersion.Release := Word(VersionInfo.Value.dwFileVersionLS shr 16);
   FileVersion.Build := Word(VersionInfo.Value.dwFileVersionLS);
@@ -196,11 +197,9 @@ begin
   FileVersion.bPrerelease := (VersionInfo.Value.dwFileFlags and VFF_PRERELEASE) = VFF_PRERELEASE;
   FileVersion.bPrivate := (VersionInfo.Value.dwFileFlags and VFF_PRIVATE) = VFF_PRIVATE;
   FileVersion.bSpecial := (VersionInfo.Value.dwFileFlags and VFF_SPECIAL) = VFF_SPECIAL;
-
   FreeLibrary(hFile);
   Result := True;
 end;
-
 function IsWrapperInstalled(var WrapperPath: String): ShortInt;
 var
   TermServiceHost,
@@ -237,14 +236,12 @@ begin
     Result := 2;
     Exit;
   end;
-
   if Pos('rdpwrap.dll', LowerCase(TermServicePath)) > 0 then begin
     WrapperPath := TermServicePath;
     Result := 1;
   end else
     Result := 0;
 end;
-
 function GetTermSrvState: ShortInt;
 type
   SERVICE_STATUS_PROCESS = record
@@ -272,20 +269,16 @@ begin
   hSC := OpenSCManager(nil, SERVICES_ACTIVE_DATABASE, SC_MANAGER_CONNECT);
   if hSC = 0 then
     Exit;
-
   hSvc := OpenService(hSC, PWideChar(SvcName), SERVICE_QUERY_STATUS);
   if hSvc = 0 then
   begin
     CloseServiceHandle(hSC);
     Exit;
   end;
-
   if QueryServiceStatusEx(hSvc, SC_STATUS_PROCESS_INFO, nil, 0, pcbBytesNeeded) then
     Exit;
-
   cbBufSize := pcbBytesNeeded;
   GetMem(Buf, cbBufSize);
-
   if not QueryServiceStatusEx(hSvc, SC_STATUS_PROCESS_INFO, Buf, cbBufSize, pcbBytesNeeded) then begin
     FreeMem(Buf, cbBufSize);
     CloseServiceHandle(hSvc);
@@ -299,7 +292,6 @@ begin
   CloseServiceHandle(hSvc);
   CloseServiceHandle(hSC);
 end;
-
 function IsListenerWorking: Boolean;
 var
   pCount: DWORD;
@@ -316,7 +308,6 @@ begin
     end;
   WinStationFreeMemory(SessionInfo);
 end;
-
 function ExtractResText(ResName: String): String;
 var
   ResStream: TResourceStream;
@@ -327,13 +318,11 @@ begin
   try
     Str.LoadFromStream(ResStream);
   except
-
   end;
   ResStream.Free;
   Result := Str.Text;
   Str.Free;
 end;
-
 function TMainForm.ExecWait(Cmdline: String): Boolean;
 var
   si: STARTUPINFO;
@@ -356,7 +345,6 @@ begin
   CloseHandle(pi.hProcess);
   Result := True;
 end;
-
 procedure TMainForm.ReadSettings;
 var
   Reg: TRegistry;
@@ -368,26 +356,21 @@ begin
   try
     cbAllowTSConnections.Checked := not Reg.ReadBool('fDenyTSConnections');
   except
-
   end;
   try
     cbSingleSessionPerUser.Checked := Reg.ReadBool('fSingleSessionPerUser');
   except
-
   end;
   try
     cbCustomPrg.Checked := Reg.ReadBool('HonorLegacySettings');
   except
-
   end;
   Reg.CloseKey;
-
   Reg.OpenKeyReadOnly('\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp');
   seRDPPort.Value := 3389;
   try
     seRDPPort.Value := Reg.ReadInteger('PortNumber');
   except
-
   end;
   OldPort := seRDPPort.Value;
   SecurityLayer := 0;
@@ -396,7 +379,6 @@ begin
     SecurityLayer := Reg.ReadInteger('SecurityLayer');
     UserAuthentication := Reg.ReadInteger('UserAuthentication');
   except
-
   end;
   if (SecurityLayer = 0) and (UserAuthentication = 0) then
     rgNLA.ItemIndex := 0;
@@ -407,19 +389,16 @@ begin
   try
     rgShadow.ItemIndex := Reg.ReadInteger('Shadow');
   except
-
   end;
   Reg.CloseKey;
   Reg.OpenKeyReadOnly('\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System');
   try
     cbHideUsers.Checked := Reg.ReadBool('dontdisplaylastusername');
   except
-
   end;
   Reg.CloseKey;
   Reg.Free;
 end;
-
 procedure TMainForm.WriteSettings;
 var
   Reg: TRegistry;
@@ -431,25 +410,20 @@ begin
   try
     Reg.WriteBool('fDenyTSConnections', not cbAllowTSConnections.Checked);
   except
-
   end;
   try
     Reg.WriteBool('fSingleSessionPerUser', cbSingleSessionPerUser.Checked);
   except
-
   end;
   try
     Reg.WriteBool('HonorLegacySettings', cbCustomPrg.Checked);
   except
-
   end;
   Reg.CloseKey;
-
   Reg.OpenKey('\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp', True);
   try
     Reg.WriteInteger('PortNumber', seRDPPort.Value);
   except
-
   end;
   if OldPort <> seRDPPort.Value then
   begin
@@ -479,14 +453,12 @@ begin
       Reg.WriteInteger('SecurityLayer', SecurityLayer);
       Reg.WriteInteger('UserAuthentication', UserAuthentication);
     except
-
     end;
   end;
   if rgShadow.ItemIndex >= 0 then begin
     try
       Reg.WriteInteger('Shadow', rgShadow.ItemIndex);
     except
-
     end;
   end;
   Reg.CloseKey;
@@ -495,7 +467,6 @@ begin
     try
       Reg.WriteInteger('Shadow', rgShadow.ItemIndex);
     except
-
     end;
   end;
   Reg.CloseKey;
@@ -503,12 +474,10 @@ begin
   try
     Reg.WriteBool('dontdisplaylastusername', cbHideUsers.Checked);
   except
-
   end;
   Reg.CloseKey;
   Reg.Free;
 end;
-
 function CheckSupport(FV: FILE_VERSION): Byte;
 var
   VerTxt: String;
@@ -523,7 +492,6 @@ begin
   if Pos('[' + VerTxt + ']', INI) > 0 then
     Result := 2;
 end;
-
 procedure TMainForm.TimerTimer(Sender: TObject);
 var
   WrapperPath, INIPath: String;
@@ -543,7 +511,8 @@ begin
     end;
     1: begin
       lsWrapper.Caption := 'Installed';
-      lsWrapper.Font.Color := clGreen;
+      lsWrapper.StyleElements := lsWrapper.StyleElements - [seFont];
+      lsWrapper.Font.Color := $0000C800;
       CheckSupp := True;
       INIPath := ExtractFilePath(ExpandPath(WrapperPath)) + 'rdpwrap.ini';
       if not FileExists(INIPath) then
@@ -551,6 +520,7 @@ begin
     end;
     2: begin
       lsWrapper.Caption := '3rd-party';
+      lsWrapper.StyleElements := lsWrapper.StyleElements - [seFont];
       lsWrapper.Font.Color := clRed;
     end;
   end;
@@ -561,6 +531,7 @@ begin
     end;
     SERVICE_STOPPED: begin
       lsService.Caption := 'Stopped';
+      lsService.StyleElements := lsService.StyleElements - [seFont];
       lsService.Font.Color := clRed;
     end;
     SERVICE_START_PENDING: begin
@@ -573,7 +544,8 @@ begin
     end;
     SERVICE_RUNNING: begin
       lsService.Caption := 'Running';
-      lsService.Font.Color := clGreen;
+      lsService.StyleElements := lsService.StyleElements - [seFont];
+      lsService.Font.Color := $0000C800;
     end;
     SERVICE_CONTINUE_PENDING: begin
       lsService.Caption := 'Resuming...';
@@ -590,9 +562,11 @@ begin
   end;
   if IsListenerWorking then begin
     lsListener.Caption := 'Listening';
-    lsListener.Font.Color := clGreen;
+    lsListener.StyleElements := lsListener.StyleElements - [seFont];
+    lsListener.Font.Color := $0000C800;
   end else begin
     lsListener.Caption := 'Not listening';
+    lsListener.StyleElements := lsListener.StyleElements - [seFont];
     lsListener.Font.Color := clRed;
   end;
   if WrapperPath = '' then begin
@@ -610,9 +584,9 @@ begin
       IntToStr(FV.Build);
       lsWrapVer.Font.Color := clWindowText;
     end;
-  if not GetFileVersion('termsrv.dll', FV) then begin
-    lsTSVer.Caption := 'N/A';
-    lsTSVer.Font.Color := clGrayText;
+  if not GetFileVersion('termsrv.dll', FV) then
+  begin
+  RestartThisApp;
   end else begin
     lsTSVer.Caption :=
     IntToStr(FV.Version.w.Major)+'.'+
@@ -627,7 +601,6 @@ begin
         try
           L.LoadFromFile(INIPath);
         except
-
         end;
         INI := L.Text;
         L.Free;
@@ -635,19 +608,37 @@ begin
       case CheckSupport(FV) of
         0: begin
           lsSuppVer.Caption := '[not supported]';
+          lsSuppVer.StyleElements := lsSuppVer.StyleElements - [seFont];
           lsSuppVer.Font.Color := clRed;
         end;
         1: begin
           lsSuppVer.Caption := '[supported partially]';
+          lsSuppVer.StyleElements := lsSuppVer.StyleElements - [seFont];
           lsSuppVer.Font.Color := clOlive;
         end;
         2: begin
           lsSuppVer.Caption := '[fully supported]';
-          lsSuppVer.Font.Color := clGreen;
+          lsSuppVer.StyleElements := lsSuppVer.StyleElements - [seFont];
+          lsSuppVer.Font.Color := $0000C800;
         end;
       end;
     end;
   end;
+end;
+
+procedure TMainForm.RestartThisApp;
+begin
+  ShellExecute(0, nil, PChar(Application.ExeName), nil, nil, SW_SHOWNORMAL);
+  Application.Terminate;
+end;
+
+procedure TMainForm.bUpdateINIClick(Sender: TObject);
+begin
+  if not FileExists('C:\Program Files\RDP Wrapper\RDPWInst.exe') then
+    ShowMessage('RDPWInst.exe not found')
+  else
+    ExecWait('C:\Program Files\RDP Wrapper\RDPWInst.exe -w');
+    RestartThisApp;
 end;
 
 procedure TMainForm.bLicenseClick(Sender: TObject);
@@ -656,19 +647,16 @@ begin
   if LicenseForm.ShowModal <> mrOk then
     Halt(0);
 end;
-
 procedure TMainForm.cbAllowTSConnectionsClick(Sender: TObject);
 begin
   if Ready then
     bApply.Enabled := True;
 end;
-
 procedure TMainForm.seRDPPortChange(Sender: TObject);
 begin
   if Ready then
     bApply.Enabled := True;
 end;
-
 procedure TMainForm.FormCreate(Sender: TObject);
 var
   SI: TSystemInfo;
@@ -685,20 +673,17 @@ begin
   ReadSettings;
   Ready := True;
 end;
-
 procedure TMainForm.FormDestroy(Sender: TObject);
 begin
   if Arch = 64 then
     RevertWowRedirection;
 end;
-
 procedure TMainForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
 begin
   if bApply.Enabled then
     CanClose := MessageBox(Handle, 'Settings are not saved. Do you want to exit?',
     'Warning', mb_IconWarning or mb_YesNo) = mrYes;
 end;
-
 procedure TMainForm.bOKClick(Sender: TObject);
 begin
   if bApply.Enabled then begin
@@ -708,9 +693,45 @@ begin
   Close;
 end;
 
+procedure TMainForm.bRestartTSClick(Sender: TObject);
+begin
+  if MessageBox(Handle, 'Are you sure you want to restart Terminal Server?',
+    'Warning', mb_IconWarning or mb_YesNo) = mrYes then
+  ExecWait('taskkill /F /T /FI "SERVICES eq UmTermService"');
+  ExecWait('taskkill /F /T /FI "SERVICES eq TermService"');
+  ExecWait('net start TermService');
+
+  RestartThisApp;
+end;
+
 procedure TMainForm.bCancelClick(Sender: TObject);
 begin
   Close;
+end;
+
+procedure TMainForm.bmstscClick(Sender: TObject);
+begin
+  ShellExecute(0, nil, 'mstsc', '/v:127.0.0.2 /f /prompt', nil, SW_SHOW);
+end;
+
+procedure TMainForm.b800x600Click(Sender: TObject);
+begin
+  ShellExecute(0, nil, 'mstsc', '/v:127.0.0.2 /w:800 /h:600 /prompt', nil, SW_SHOW);
+end;
+
+procedure TMainForm.b1024x768Click(Sender: TObject);
+begin
+  ShellExecute(0, nil, 'mstsc', '/v:127.0.0.2 /w:1024 /h:768 /prompt', nil, SW_SHOW);
+end;
+
+procedure TMainForm.b1366x768Click(Sender: TObject);
+begin
+  ShellExecute(0, nil, 'mstsc', '/v:127.0.0.2 /w:1366 /h:768 /prompt', nil, SW_SHOW);
+end;  
+
+procedure TMainForm.b1920x1080Click(Sender: TObject);
+begin
+  ShellExecute(0, nil, 'mstsc', '/v:127.0.0.2 /w:1920 /h:1080 /prompt', nil, SW_SHOW);
 end;
 
 procedure TMainForm.bApplyClick(Sender: TObject);
@@ -718,5 +739,4 @@ begin
   WriteSettings;
   bApply.Enabled := False;
 end;
-
 end.
