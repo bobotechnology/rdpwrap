@@ -168,7 +168,8 @@ Visit [issues](https://github.com/stascorp/rdpwrap/issues) section, and check wh
 
 ### Change log:
 
-### Installation instructions:
+### How to use
+Installation instructions:
 - Download latest release binaries and unpack files
 - Right-click on **`install.bat`** and select Run as Administrator
 - See command output for details
