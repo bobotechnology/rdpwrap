@@ -41,8 +41,8 @@ RDP Wrapper works as a layer between Service Control Manager and Terminal Servic
 [fWin81P]:   https://img.picui.cn/free/2025/01/26/6796251bc2b04.png
 [fWin81]:    https://img.picui.cn/free/2025/01/26/6796253d55300.png
 [fWin10TP]:  https://img.picui.cn/free/2025/01/26/6796257c0b4b5.png
-[fWin10PTP]: http://stascorp.com/images/rdpwrap/Win10PTP.png
-[fWin10]:    http://stascorp.com/images/rdpwrap/Win10.png
+[fWin10PTP]: https://img.picui.cn/free/2025/01/26/679627c823559.png
+[fWin10]:    https://img.picui.cn/free/2025/01/26/67962926acd4f.png
 
 | NT Version    | Screenshots |
 | ------------- | ----------- |
