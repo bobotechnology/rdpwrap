@@ -36,10 +36,10 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 [fWin8DP]:   https://img.picui.cn/free/2025/01/26/67961d550a2ea.png
 [fWin8CP]:   https://img.picui.cn/free/2025/01/26/67961d72a0869.png
 [fWin8RP]:   https://img.picui.cn/free/2025/01/26/67961d92c073b.png
-[fWin8]:     http://stascorp.com/images/rdpwrap/Win8.png
-[fWin81P]:   http://stascorp.com/images/rdpwrap/Win81P.png
-[fWin81]:    http://stascorp.com/images/rdpwrap/Win81.png
-[fWin10TP]:  http://stascorp.com/images/rdpwrap/Win10TP.png
+[fWin8]:     https://img.picui.cn/free/2025/01/26/6796245c315e1.png
+[fWin81P]:   https://img.picui.cn/free/2025/01/26/6796251bc2b04.png
+[fWin81]:    https://img.picui.cn/free/2025/01/26/6796253d55300.png
+[fWin10TP]:  https://img.picui.cn/free/2025/01/26/6796257c0b4b5.png
 [fWin10PTP]: http://stascorp.com/images/rdpwrap/Win10PTP.png
 [fWin10]:    http://stascorp.com/images/rdpwrap/Win10.png
 
