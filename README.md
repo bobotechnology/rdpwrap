@@ -17,18 +17,18 @@ The goal of this project is to enable Remote Desktop Host support and concurrent
 RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
 
 [pVistaST]:  https://img.picui.cn/free/2025/01/26/679614043df9f.jpg
-[pVistaHB]:  http://stascorp.com/images/rdpwrap/pVistaHB.jpg
-[pWin7ST]:   http://stascorp.com/images/rdpwrap/pWin7ST.jpg
-[pWin7HB]:   http://stascorp.com/images/rdpwrap/pWin7HB.jpg
-[pWin8DP]:   http://stascorp.com/images/rdpwrap/pWin8DP.jpg
-[pWin8CP]:   http://stascorp.com/images/rdpwrap/pWin8CP.jpg
-[pWin8RP]:   http://stascorp.com/images/rdpwrap/pWin8RP.jpg
-[pWin8]:     http://stascorp.com/images/rdpwrap/pWin8.jpg
-[pWin81P]:   http://stascorp.com/images/rdpwrap/pWin81P.jpg
-[pWin81]:    http://stascorp.com/images/rdpwrap/pWin81.jpg
-[pWin10TP]:  http://stascorp.com/images/rdpwrap/pWin10TP.jpg
-[pWin10PTP]: http://stascorp.com/images/rdpwrap/pWin10PTP.jpg
-[pWin10]:    http://stascorp.com/images/rdpwrap/pWin10.jpg
+[pVistaHB]:  https://img.picui.cn/free/2025/01/26/679616b855732.jpg
+[pWin7ST]:   https://img.picui.cn/free/2025/01/26/679617139cd71.jpg
+[pWin7HB]:   https://img.picui.cn/free/2025/01/26/6796176a330a9.jpg
+[pWin8DP]:   https://img.picui.cn/free/2025/01/26/679617afdabd0.jpg
+[pWin8CP]:   https://img.picui.cn/free/2025/01/26/679618a71ca3d.jpg
+[pWin8RP]:   https://img.picui.cn/free/2025/01/26/67961903211f8.jpg
+[pWin8]:     https://img.picui.cn/free/2025/01/26/6796195b1ae76.jpg
+[pWin81P]:   https://img.picui.cn/free/2025/01/26/679619c1dd3f0.jpg
+[pWin81]:    https://img.picui.cn/free/2025/01/26/67961a30061fc.jpg
+[pWin10TP]:  https://img.picui.cn/free/2025/01/26/67961a9ce2f51.jpg
+[pWin10PTP]: https://img.picui.cn/free/2025/01/26/67961ac842687.jpg
+[pWin10]:    https://img.picui.cn/free/2025/01/26/67961afba6e6a.jpg
 
 [fVistaST]:  http://stascorp.com/images/rdpwrap/VistaST.png
 [fVistaHB]:  http://stascorp.com/images/rdpwrap/VistaHB.png
