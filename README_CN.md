@@ -27,15 +27,15 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 [pWin81]:    https://img.picui.cn/free/2025/01/26/67961a30061fc.jpg
 [pWin10TP]:  https://img.picui.cn/free/2025/01/26/67961a9ce2f51.jpg
 [pWin10PTP]: https://img.picui.cn/free/2025/01/26/67961ac842687.jpg
-[pWin10]:    http://stascorp.com/images/rdpwrap/pWin10.jpg
+[pWin10]:    https://img.picui.cn/free/2025/01/26/67961afba6e6a.jpg
 
-[fVistaST]:  http://stascorp.com/images/rdpwrap/VistaST.png
-[fVistaHB]:  http://stascorp.com/images/rdpwrap/VistaHB.png
-[fWin7ST]:   http://stascorp.com/images/rdpwrap/Win7ST.png
-[fWin7HB]:   http://stascorp.com/images/rdpwrap/Win7HB.png
-[fWin8DP]:   http://stascorp.com/images/rdpwrap/Win8DP.png
-[fWin8CP]:   http://stascorp.com/images/rdpwrap/Win8CP.png
-[fWin8RP]:   http://stascorp.com/images/rdpwrap/Win8RP.png
+[fVistaST]:  https://img.picui.cn/free/2025/01/26/67961bc9d391d.png
+[fVistaHB]:  https://img.picui.cn/free/2025/01/26/67961bf126ee5.png
+[fWin7ST]:   https://img.picui.cn/free/2025/01/26/67961c5e4db3c.png
+[fWin7HB]:   https://img.picui.cn/free/2025/01/26/67961c93bfae8.png
+[fWin8DP]:   https://img.picui.cn/free/2025/01/26/67961d550a2ea.png
+[fWin8CP]:   https://img.picui.cn/free/2025/01/26/67961d72a0869.png
+[fWin8RP]:   https://img.picui.cn/free/2025/01/26/67961d92c073b.png
 [fWin8]:     http://stascorp.com/images/rdpwrap/Win8.png
 [fWin81P]:   http://stascorp.com/images/rdpwrap/Win81P.png
 [fWin81]:    http://stascorp.com/images/rdpwrap/Win81.png
