@@ -15,7 +15,7 @@
 
 RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此原始的 termsrv.dll 文件保持不变。此外，这种方法，即使Windows更新也不受到影响。
 
-[pVistaST]:  http://stascorp.com/images/rdpwrap/pVistaST.jpg
+[pVistaST]:  https://img.picui.cn/free/2025/01/26/679614043df9f.jpg
 [pVistaHB]:  http://stascorp.com/images/rdpwrap/pVistaHB.jpg
 [pWin7ST]:   http://stascorp.com/images/rdpwrap/pWin7ST.jpg
 [pWin7HB]:   http://stascorp.com/images/rdpwrap/pWin7HB.jpg

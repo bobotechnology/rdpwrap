@@ -16,7 +16,7 @@ The goal of this project is to enable Remote Desktop Host support and concurrent
 
 RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
 
-[pVistaST]:  http://stascorp.com/images/rdpwrap/pVistaST.jpg
+[pVistaST]:  https://img.picui.cn/free/2025/01/26/679614043df9f.jpg
 [pVistaHB]:  http://stascorp.com/images/rdpwrap/pVistaHB.jpg
 [pWin7ST]:   http://stascorp.com/images/rdpwrap/pWin7ST.jpg
 [pWin7HB]:   http://stascorp.com/images/rdpwrap/pWin7HB.jpg
