@@ -51,9 +51,8 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 | Windows 8.1   | [![Windows 8.1 Preview][pWin81P]][fWin81P] [![Windows 8.1][pWin81]][fWin81] |
 | Windows 10    | [![Windows 10 Technical Preview][pWin10TP]][fWin10TP] [![Windows 10 Pro Technical Preview][pWin10PTP]][fWin10PTP] [![Windows 10][pWin10]][fWin10] |
 ---
-[WinPPE]: http://forums.mydigitallife.info/threads/39411-Windows-Product-Policy-Editor
 
-这个解决方案的灵感来源于 [Windows 产品策略编辑器][WinPPE]，非常感谢 **kost** :)
+这个解决方案的灵感来源于 Windows 产品策略编辑器，非常感谢 **kost** :)
 
 — binarymaster
 

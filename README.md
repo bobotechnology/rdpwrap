@@ -52,9 +52,9 @@ RDP Wrapper works as a layer between Service Control Manager and Terminal Servic
 | Windows 8.1   | [![Windows 8.1 Preview][pWin81P]][fWin81P] [![Windows 8.1][pWin81]][fWin81] |
 | Windows 10    | [![Windows 10 Technical Preview][pWin10TP]][fWin10TP] [![Windows 10 Pro Technical Preview][pWin10PTP]][fWin10PTP] [![Windows 10][pWin10]][fWin10] |
 ---
-[WinPPE]: http://forums.mydigitallife.info/threads/39411-Windows-Product-Policy-Editor
 
-This solution was inspired by [Windows Product Policy Editor][WinPPE], big thanks to **kost** :)
+
+This solution was inspired by Windows Product Policy Editor, big thanks to **kost** :)
 
 — binarymaster
 
