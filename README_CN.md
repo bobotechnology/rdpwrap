@@ -1,5 +1,7 @@
 # Third Party RDP Wrapper Library by bobo
 
+[English](https://github.com/bobotechnology/rdpwrap/blob/master/README.md) | 简体中文
+
 [![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
 ![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010,%2011-brightgreen.svg)
 [![Release](https://img.shields.io/github/release/stascorp/rdpwrap.svg)](https://github.com/stascorp/rdpwrap/releases)
