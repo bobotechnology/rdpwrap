@@ -1,6 +1,6 @@
 [Main]
 ; Last updated date
-Updated=2018-10-10
+Updated=2025-01-31
 ; Address to log file (RDP Wrapper will write it, if exists)
 LogFile=\rdpwrap.txt
 ; Hook SLPolicy API on Windows NT 6.0
@@ -44,15 +44,24 @@ TerminalServices-RemoteConnectionManager-UiEffects-DWMRemotingAllowed=1
 [PatchCodes]
 nop=90
 Zero=00
-jmpshort=EB
+nop_3=909090
+nop_4=90909090
+nop_7=90909090909090
 nopjmp=90E9
-CDefPolicy_Query_edx_ecx=BA000100008991200300005E90
-CDefPolicy_Query_eax_rcx_jmp=B80001000089813806000090EB
+jmpshort=EB
+mov_eax_1_nop_1=B80100000090
+mov_eax_1_nop_2=B8010000009090
+pop_eax_add_esp_12_nop_2=5883C40C9090
 CDefPolicy_Query_eax_esi=B80001000089862003000090
+CDefPolicy_Query_edx_ecx=BA000100008991200300005E90
 CDefPolicy_Query_eax_rdi=B80001000089873806000090
-CDefPolicy_Query_eax_ecx=B80001000089812003000090
+CDefPolicy_Query_eax_rdi_jmp=B80001000089873806000090EB
+; CDefPolicy_Query_eax_rdi_jmp=B800010000898738060000EB0D
+CDefPolicy_Query_eax_ecx=B80001000089812403000090
+; CDefPolicy_Query_eax_ecx=B80001000089812003000090
 CDefPolicy_Query_eax_ecx_jmp=B800010000898120030000EB0E
 CDefPolicy_Query_eax_rcx=B80001000089813806000090
+CDefPolicy_Query_eax_rcx_jmp=B80001000089813806000090EB
 CDefPolicy_Query_edi_rcx=BF0001000089B938060000909090
 
 [6.0.6000.16386]
@@ -956,6 +965,65 @@ SLPolicyOffset.x86=19581
 SLPolicyFunc.x86=New_Win8SL
 SLPolicyInternal.x64=1
 SLPolicyOffset.x64=21FD0
+SLPolicyFunc.x64=New_Win8SL
+
+[6.2.9200.23509]
+; Patch CSessionArbitrationHelper::IsSingleSessionPerUserEnabled
+; HOW TO search CSessionArbitrationHelper::IsSingleSessionPerUserEnabled function in IDA Pro:
+; 1. Search text: CSessionArbitrationHelper::IsSingleSessionPerUserEnabled
+; 2. Use Ctrl + X to view the functions that have xref to this data, then press Enter to jump to the function
+; 3. Look down to find memset, VersionInformation, call GetVersionExW, mov ***, 1 and so on
+
+; Patch CSessionArbitrationHelper::IsSingleSessionPerUserEnabled
+; .text:000000018008E105                 call    memset
+; .text:000000018008E10A                 lea     rcx, [rsp+190h+VersionInformation] ; lpVersionInformation
+; .text:000000018008E10F                 mov     ebx, 1 <- mov ***,1->
+; .text:000000018008E114                 mov     [rsp+190h+VersionInformation.dwOSVersionInfoSize], 11Ch
+; .text:000000018008E11C                 mov     [rdi], ebx
+; .text:000000018008E11E                 call    cs:GetVersionExW
+; .text:000000018008E124                 xor     esi, esi
+; .text:000000018008E126                 test    eax, eax
+; .text:000000018008E128                 jz      loc_18008E251
+; .text:000000018008E12E                 cmp     [rbp+90h+var_26], bl <- nop
+SingleUserPatch.x64=1
+SingleUserOffset.x64=8E12E
+SingleUserCode.x64=nop_3
+; HOW TO search CDefPolicy::Query function in IDA Pro:
+; 1. Search text: CDefPolicy::Query FAILED - License not available
+; 2. Use Ctrl + X to view the functions that have xref to this data, then press Enter to jump to the function
+; 3. Look up jz/jnz
+
+; Patch CDefPolicy::Query
+; Original
+; .text:000000018007B28C                 mov     eax, [rdi+638h]
+; .text:000000018007B292                 cmp     [rdi+63Ch], eax
+; .text:000000018007B298                 jnz     short loc_18007B2AE
+; Changed
+; .text:000000018007B28C                 mov     eax, 100h
+; .text:000000018007B291                 mov     [rdi+638h], eax
+; .text:000000018007B297                 nop
+; .text:000000018007B298                 jmp     short loc_18007B2AE
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=7B28C
+DefPolicyCode.x64=CDefPolicy_Query_eax_rdi_jmp
+
+; HOW TO search SLGetWindowsInformationDWORDWrapper function in IDA Pro:
+; 1. Search text: The SL policy for 
+; 2. Use Ctrl + X to view the functions with "xref to this data", press Enter to jump to the function  
+; 3. Look up the call sub_*** (The called function is SLGetWindowsInformationDWORDWrapper)
+
+; .text:0000000180086E7A                 lea     rcx, aTerminalservic_0 ; "TerminalServices-RemoteConnectionManage"...
+; .text:0000000180086E81                 call    sub_180084000 <- call sub_*** (The called function is SLGetWindowsInformationDWORDWrapper) ->
+; .text:0000000180086E86                 mov     r15d, 0C004F012h
+; .text:0000000180086E8C                 mov     r14d, 4
+; .text:0000000180086E92                 mov     ebx, eax
+; .text:0000000180086E94                 cmp     eax, r15d
+; .text:0000000180086E97                 jnz     short loc_180086EBF
+; .text:0000000180086E99                 lea     rdx, aTheSlPolicyFor ; "The SL policy for 'Allow Remote Connect"...
+; .text:0000000180086EA0                 mov     ecx, r14d
+; Hook SLGetWindowsInformationDWORDWrapper
+SLPolicyInternal.x64=1
+SLPolicyOffset.x64=84000
 SLPolicyFunc.x64=New_Win8SL
 
 [6.3.9431.0]
