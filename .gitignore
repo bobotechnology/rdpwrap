@@ -21,6 +21,7 @@ __history/
 bin/
 obj/
 x64/
+Release/
 *.suo
 *.user
 *.pdb
@@ -31,3 +32,7 @@ x64/
 FileContentIndex
 *.VC.db
 *.VC.VC.opendb
+*.tlog
+*.lastbuildstate
+*.iobj
+*.ipdb
