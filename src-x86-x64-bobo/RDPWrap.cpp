@@ -61,22 +61,45 @@ size_t TermSrvBase;
 
 INIParser parser;
 
-void WriteToLog(LPSTR Text)
+class FileHandle {
+    HANDLE m_handle;
+public:
+    FileHandle() : m_handle(INVALID_HANDLE_VALUE) {}
+    FileHandle(HANDLE handle) : m_handle(handle) {}
+    ~FileHandle() { if (IsValid()) CloseHandle(m_handle); }
+    bool IsValid() const { return m_handle != INVALID_HANDLE_VALUE; }
+    operator HANDLE() const { return m_handle; }
+};
+
+static FileHandle g_logFile;
+
+void WriteToLog(LPCWSTR Text)
 {
-    DWORD dwBytesOfWritten;
-
-    HANDLE hFile = CreateFile(LogFile, GENERIC_WRITE, FILE_SHARE_WRITE | FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE)
-        return;
-
-    SetFilePointer(hFile, 0, 0, FILE_END);
-    size_t len = strlen(Text);
-    if (len > MAXDWORD)
-    {
-        return;
+    if (!g_logFile.IsValid()) {
+        g_logFile = CreateFileW(LogFile, GENERIC_WRITE, FILE_SHARE_READ, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (!g_logFile.IsValid()) {
+            return;
+        }
     }
-    WriteFile(hFile, Text, (DWORD)len, &dwBytesOfWritten, NULL);
-    CloseHandle(hFile);
+
+    if (SetFilePointer(g_logFile, 0, NULL, FILE_END) != INVALID_SET_FILE_POINTER) {
+        DWORD bytesWritten;
+        WriteFile(g_logFile, Text, (DWORD)wcslen(Text) * sizeof(wchar_t), &bytesWritten, NULL);
+    }
+}
+
+inline void WriteToLog(LPCSTR Text)
+{
+    // Convert ANSI to Unicode
+    int wideLen = MultiByteToWideChar(CP_ACP, 0, Text, -1, NULL, 0);
+    if (wideLen <= 0) return;
+    
+    wchar_t* wideText = new wchar_t[wideLen];
+    MultiByteToWideChar(CP_ACP, 0, Text, -1, wideText, wideLen);
+    
+    WriteToLog(wideText);
+    
+    delete[] wideText;
 }
 
 HMODULE GetCurrentModule()
