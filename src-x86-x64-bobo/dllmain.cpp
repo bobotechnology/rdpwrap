@@ -6,9 +6,16 @@ BOOL APIENTRY DllMain(HMODULE hModule,
                       DWORD  ul_reason_for_call,
                       LPVOID lpReserved)
 {
-    if (ul_reason_for_call == DLL_PROCESS_DETACH && hTermSrv != NULL)
+    switch (ul_reason_for_call)
     {
-        FreeLibrary(hTermSrv);
+    case DLL_PROCESS_ATTACH:
+        break;
+    case DLL_PROCESS_DETACH:
+        if (hTermSrv != NULL)
+        {
+            FreeLibrary(hTermSrv);
+        }
+        break;
     }
     return TRUE;
 }
