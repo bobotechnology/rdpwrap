@@ -108,7 +108,7 @@ __declspec(noinline) HMODULE GetCurrentModule()
     // Cast address to LPCWSTR (treated as pointer only, not string)
     if (!GetModuleHandleEx(
         GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-        static_cast<LPCWSTR>(__ReturnAddress()),
+        static_cast<LPCWSTR>(_ReturnAddress()),
         &hModule))
     {
         return NULL;
