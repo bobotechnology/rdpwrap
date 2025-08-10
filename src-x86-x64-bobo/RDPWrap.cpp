@@ -90,7 +90,6 @@ void WriteToLog(LPCWSTR Text)
 
 inline void WriteToLog(LPCSTR Text)
 {
-    // Convert ANSI to Unicode
     int wideLen = MultiByteToWideChar(CP_ACP, 0, Text, -1, NULL, 0);
     if (wideLen <= 0) return;
     
@@ -102,10 +101,18 @@ inline void WriteToLog(LPCSTR Text)
     delete[] wideText;
 }
 
-HMODULE GetCurrentModule()
+// Prevent inlining to ensure __ReturnAddress() points to this DLL
+__declspec(noinline) HMODULE GetCurrentModule()
 {
     HMODULE hModule = NULL;
-    GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)GetCurrentModule, &hModule);
+    // Cast address to LPCWSTR (treated as pointer only, not string)
+    if (!GetModuleHandleEx(
+        GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+        static_cast<LPCWSTR>(__ReturnAddress()),
+        &hModule))
+    {
+        return NULL;
+    }
     return hModule;
 }
 
