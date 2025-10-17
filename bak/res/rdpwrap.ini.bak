@@ -3,7 +3,7 @@
 ; Edited by sebaxakerhtc
 
 [Main]
-Updated=2025-10-16
+Updated=2025-10-17
 LogFile=\rdpwrap.txt
 SLPolicyHookNT60=1
 SLPolicyHookNT61=1
@@ -6028,6 +6028,20 @@ SLInitHook.x64=1
 SLInitOffset.x64=2902C
 SLInitFunc.x64=New_CSLQuery_Initialize
 
+[10.0.19041.6456]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=91A61
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=1842B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=1F415
+DefPolicyCode.x64=CDefPolicy_Query_eax_rcx
+SLInitHook.x64=1
+SLInitOffset.x64=2902C
+SLInitFunc.x64=New_CSLQuery_Initialize
+
 [10.0.19101.1112]
 LocalOnlyPatch.x64=1
 LocalOnlyOffset.x64=941D1
@@ -11463,6 +11477,20 @@ SLInitHook.x64=1
 SLInitOffset.x64=AE63C
 SLInitFunc.x64=New_CSLQuery_Initialize
 
+[10.0.27971.1]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=8F277
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=9BA6B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=98E0F
+DefPolicyCode.x64=CDefPolicy_Query_eax_rcx_jmp
+SLInitHook.x64=1
+SLInitOffset.x64=AE66C
+SLInitFunc.x64=New_CSLQuery_Initialize
+
 [SLInit]
 bServerSku=1
 bRemoteConnAllowed=1
@@ -15146,6 +15174,16 @@ bRemoteConnAllowed.x86=E39A8
 bMultimonAllowed.x86  =E39AC
 ulMaxDebugSessions.x86=E39B0
 bFUSEnabled.x86       =E39B4
+bInitialized.x64      =125094
+bServerSku.x64        =125098
+lMaxUserSessions.x64  =12509C
+bAppServerAllowed.x64 =1250A0
+bRemoteConnAllowed.x64=1250AC
+bMultimonAllowed.x64  =1250B0
+ulMaxDebugSessions.x64=1250B4
+bFUSEnabled.x64       =1250B8
+
+[10.0.19041.6456-SLInit]
 bInitialized.x64      =125094
 bServerSku.x64        =125098
 lMaxUserSessions.x64  =12509C
@@ -19025,3 +19063,13 @@ bRemoteConnAllowed.x64=128FD8
 bMultimonAllowed.x64  =128FDC
 ulMaxDebugSessions.x64=128FE4
 bFUSEnabled.x64       =128FE8
+
+[10.0.27971.1-SLInit]
+bInitialized.x64      =128FD0
+bServerSku.x64        =128FD4
+lMaxUserSessions.x64  =128FD8
+bAppServerAllowed.x64 =128FE0
+bRemoteConnAllowed.x64=128FE8
+bMultimonAllowed.x64  =128FEC
+ulMaxDebugSessions.x64=128FF4
+bFUSEnabled.x64       =128FF8
