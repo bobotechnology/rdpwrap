@@ -1,4 +1,0 @@
-LIBRARY   RDPWrap
-EXPORTS
-   ServiceMain
-   SvchostPushServiceGlobals
