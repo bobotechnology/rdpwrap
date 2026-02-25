@@ -74,7 +74,7 @@ HRESULT __fastcall New_Win8SL(PWSTR pwszValueName, DWORD* pdwValue) {
   return result;
 }
 
-#if defined(_M_ARM) || defined(_M_ARM64)
+#if defined(_M_ARM) || defined(_M_IX86)
 HRESULT __fastcall New_Win8SL_CP(DWORD /*arg1*/,
                                  DWORD* pdwValue,
                                  PWSTR pwszValueName,
