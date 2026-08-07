@@ -27,15 +27,15 @@ std::string IniGetRaw(const ini::Parser& parser,
   }
 }
 
-DWORD INIReadDWordHex(const ini::Parser& parser,
-                      const char* sect,
-                      const char* key,
-                      PLATFORM_DWORD def_val) {
+PLATFORM_DWORD INIReadDWordHex(const ini::Parser& parser,
+                            const char* sect,
+                            const char* key,
+                            PLATFORM_DWORD def_val) {
   std::string val_str = IniGetRaw(parser, sect, key, "");
   if (val_str.empty()) {
-    return static_cast<DWORD>(def_val);
+    return def_val;
   }
-  return static_cast<DWORD>(strtoul(val_str.c_str(), nullptr, 16));
+  return strtoull(val_str.c_str(), nullptr, 16);
 }
 
 void INIReadString(const ini::Parser& parser,
@@ -191,6 +191,48 @@ void SetThreadsState(bool resume) {
     } while (Thread32Next(h, &thread));
     CloseHandle(h);
   }
+}
+
+bool PatchMemoryWrite(LPVOID addr, LPCVOID data, SIZE_T size) {
+  if (!addr || !data || size == 0) return false;
+
+  HANDLE hProc = GetCurrentProcess();
+  DWORD oldProtect = 0;
+
+  if (!VirtualProtectEx(hProc, addr, size, PAGE_EXECUTE_READWRITE, &oldProtect)) {
+    WriteLogFormat("PatchMemoryWrite: VirtualProtect failed at 0x%p (error %lu)\r\n",
+                   addr, GetLastError());
+    return false;
+  }
+
+  SIZE_T bytesWritten = 0;
+  BOOL ok = WriteProcessMemory(hProc, addr, data, size, &bytesWritten);
+
+  DWORD restored = 0;
+  VirtualProtectEx(hProc, addr, size, oldProtect, &restored);
+
+  if (!ok || bytesWritten != size) {
+    WriteLogFormat("PatchMemoryWrite: WriteProcessMemory failed at 0x%p (%lu/%llu bytes, error %lu)\r\n",
+                   addr, (ULONG_PTR)bytesWritten, (ULONGLONG)size, GetLastError());
+    return false;
+  }
+
+  FlushInstructionCache(hProc, addr, size);
+  return true;
+}
+
+bool PatchMemoryRead(LPVOID addr, LPVOID buf, SIZE_T size) {
+  if (!addr || !buf || size == 0) return false;
+
+  SIZE_T bytesRead = 0;
+  if (!ReadProcessMemory(GetCurrentProcess(), addr, buf, size, &bytesRead) ||
+      bytesRead != size) {
+    WriteLogFormat("PatchMemoryRead: ReadProcessMemory failed at 0x%p (%lu/%llu bytes, error %lu)\r\n",
+                   addr, (ULONG_PTR)bytesRead, (ULONGLONG)size, GetLastError());
+    return false;
+  }
+
+  return true;
 }
 
 BOOL __stdcall GetModuleVersion(LPCWSTR lptstrModuleName,

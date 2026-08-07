@@ -4,7 +4,7 @@
 
 void WINAPI ServiceMain(DWORD dwArgc, LPTSTR* lpszArgv) {
   WriteToLog(">>> ServiceMain\r\n");
-  if (!AlreadyHooked) {
+  if (InterlockedCompareExchange(&AlreadyHooked, 1, 0) == 0) {
     Hook();
   }
 
@@ -16,7 +16,7 @@ void WINAPI ServiceMain(DWORD dwArgc, LPTSTR* lpszArgv) {
 
 void WINAPI SvchostPushServiceGlobals(void* lpGlobalData) {
   WriteToLog(">>> SvchostPushServiceGlobals\r\n");
-  if (!AlreadyHooked) {
+  if (InterlockedCompareExchange(&AlreadyHooked, 1, 0) == 0) {
     Hook();
   }
 

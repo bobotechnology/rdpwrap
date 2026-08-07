@@ -63,7 +63,7 @@ void ApplyConfiguredPatch(const ini::Parser& parser,
     return;
   }
 
-  DWORD offset = INIReadDWordHex(parser, build_section, patch_offset_key, 0);
+  PLATFORM_DWORD offset = INIReadDWordHex(parser, build_section, patch_offset_key, 0);
   if (offset == 0) {
     WriteLogFormat("Patch %s: missing offset\r\n", patch_label);
     return;
@@ -80,12 +80,12 @@ void ApplyConfiguredPatch(const ini::Parser& parser,
     return;
   }
 
-  SIZE_T bytes_written = 0;
   PLATFORM_DWORD patch_addr = module_base + offset;
-  WriteProcessMemory(GetCurrentProcess(), reinterpret_cast<LPVOID>(patch_addr),
-                     patch_buf, patch_size, &bytes_written);
-  FlushInstructionCache(GetCurrentProcess(),
-                        reinterpret_cast<LPCVOID>(patch_addr), patch_size);
+  if (!PatchMemoryWrite(reinterpret_cast<LPVOID>(patch_addr), patch_buf, patch_size)) {
+    WriteLogFormat("Patch %s: write failed at termsrv.dll+0x%X\r\n",
+                   patch_label, offset);
+    return;
+  }
 
   WriteLogFormat("Patch %s: termsrv.dll+0x%X (%u bytes, code=%s)\r\n",
                  patch_label, offset, patch_size, patch_name);
@@ -110,7 +110,7 @@ HRESULT WINAPI New_CSLQuery_Initialize() {
             FV.Release, FV.Build);
 
   if (g_IniParser->has_section(sect)) {
-#ifdef _M_ARM64
+#if defined(_M_ARM64)
     bServerSku = (DWORD*)(TermSrvBase +
                           INIReadDWordHex(*g_IniParser, sect, "bServerSku.arm64", 0));
     bRemoteConnAllowed = (DWORD*)(
@@ -128,7 +128,7 @@ HRESULT WINAPI New_CSLQuery_Initialize() {
                  INIReadDWordHex(*g_IniParser, sect, "ulMaxDebugSessions.arm64", 0));
     bInitialized =
         (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bInitialized.arm64", 0));
-#else
+#elif defined(_M_ARM)
     bServerSku =
         (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bServerSku.arm", 0));
     bRemoteConnAllowed = (DWORD*)(
@@ -145,6 +145,8 @@ HRESULT WINAPI New_CSLQuery_Initialize() {
         (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "ulMaxDebugSessions.arm", 0));
     bInitialized =
         (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bInitialized.arm", 0));
+#else
+    // x86/x64: SLInit hook not used; keep all pointers NULL
 #endif
   }
 
@@ -195,8 +197,6 @@ HRESULT WINAPI New_CSLQuery_Initialize() {
 }
 
 void Hook() {
-  AlreadyHooked = true;
-
   wchar_t configFile[256] = {0x00};
   wchar_t modulePath[256] = {0x00};
   wchar_t moduleDir[256] = {0x00};
@@ -227,7 +227,6 @@ void Hook() {
     return;
   }
 
-  SIZE_T bw = 0;
   WORD ver = 0;
   PLATFORM_DWORD termSrvSize = 0;
   PLATFORM_DWORD signPtr = 0;
@@ -279,7 +278,7 @@ void Hook() {
     _SLGetWindowsInformationDWORD =
         (SLGETWINDOWSINFORMATIONDWORD)GetProcAddress(hSLC,
                                                      "SLGetWindowsInformationDWORD");
-    if (_SLGetWindowsInformationDWORD != INVALID_HANDLE_VALUE) {
+    if (_SLGetWindowsInformationDWORD != NULL) {
       WriteToLog("Hook SLGetWindowsInformationDWORD\r\n");
 #ifdef _M_ARM64
       Stub_SLGetWindowsInformationDWORD.LdrOp = 0x58000050;
@@ -306,13 +305,18 @@ void Hook() {
 #else
 #error Unsupported architecture
 #endif
-      ReadProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                        &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP), &bw);
-      WriteProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                         &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP),
-                         &bw);
-      FlushInstructionCache(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                            sizeof(FARJMP));
+      if (!PatchMemoryRead(_SLGetWindowsInformationDWORD,
+                          &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+        WriteToLog("Error: Failed to read old bytes for SLGetWindowsInformationDWORD\r\n");
+        SetThreadsState(true);
+        return;
+      }
+      if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+                           &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+        WriteToLog("Error: Failed to write hook for SLGetWindowsInformationDWORD\r\n");
+        SetThreadsState(true);
+        return;
+      }
     }
   }
 
@@ -322,7 +326,7 @@ void Hook() {
     _SLGetWindowsInformationDWORD =
         (SLGETWINDOWSINFORMATIONDWORD)GetProcAddress(hSLC,
                                                      "SLGetWindowsInformationDWORD");
-    if (_SLGetWindowsInformationDWORD != INVALID_HANDLE_VALUE) {
+    if (_SLGetWindowsInformationDWORD != NULL) {
       WriteToLog("Hook SLGetWindowsInformationDWORD\r\n");
 #ifdef _M_ARM64
       Stub_SLGetWindowsInformationDWORD.LdrOp = 0x58000050;
@@ -349,21 +353,35 @@ void Hook() {
 #else
 #error Unsupported architecture
 #endif
-      ReadProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                        &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP), &bw);
-      WriteProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                         &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP),
-                         &bw);
-      FlushInstructionCache(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                            sizeof(FARJMP));
+      if (!PatchMemoryRead(_SLGetWindowsInformationDWORD,
+                          &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+        WriteToLog("Error: Failed to read old bytes for SLGetWindowsInformationDWORD (NT61)\r\n");
+        SetThreadsState(true);
+        return;
+      }
+      if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+                           &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+        WriteToLog("Error: Failed to write hook for SLGetWindowsInformationDWORD (NT61)\r\n");
+        SetThreadsState(true);
+        return;
+      }
     }
   }
 
   if (ver == 0x0602) {
     hSLC = LoadLibrary(L"slc.dll");
+    if (hSLC == 0) {
+      WriteToLog("Error: Failed to load slc.dll for NT6.2\r\n");
+      SetThreadsState(true);
+      return;
+    }
     _SLGetWindowsInformationDWORD =
         (SLGETWINDOWSINFORMATIONDWORD)GetProcAddress(hSLC,
                                                      "SLGetWindowsInformationDWORD");
+    if (_SLGetWindowsInformationDWORD == NULL) {
+      WriteToLog("Error: SLGetWindowsInformationDWORD not found in slc.dll\r\n");
+      _SLGetWindowsInformationDWORD = nullptr;
+    }
   }
 
   char sect[256] = {0};
@@ -417,8 +435,11 @@ void Hook() {
 #endif
 #ifdef _M_ARM64
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.arm64", false);
-#else
+#elif defined(_M_ARM)
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.arm", false);
+#else
+    // x86/x64: SLPolicyInternal hook not applicable
+    enabled = false;
 #endif
     if (enabled) {
       WriteToLog("Hook SLGetWindowsInformationDWORDWrapper\r\n");
@@ -451,18 +472,26 @@ void Hook() {
 #else
 #error Unsupported architecture
 #endif
-      if (signPtr > TermSrvBase) {
-        WriteProcessMemory(GetCurrentProcess(), (LPVOID)signPtr, &jump,
-                           sizeof(FARJMP), &bw);
-        FlushInstructionCache(GetCurrentProcess(), (LPCVOID)signPtr,
-                              sizeof(FARJMP));
+      if (signPtr > TermSrvBase && signPtr + sizeof(FARJMP) <= TermSrvBase + termSrvSize) {
+        if (!PatchMemoryWrite((LPVOID)signPtr, &jump, sizeof(FARJMP))) {
+          WriteToLog("Error: Failed to write SLPolicy hook\r\n");
+        }
+      } else {
+        WriteLogFormat(
+            "Warning: SLPolicy offset 0x%llX out of code range [0x%llX, 0x%llX)\r\n",
+            (ULONGLONG)signPtr,
+            (ULONGLONG)TermSrvBase,
+            (ULONGLONG)(TermSrvBase + termSrvSize));
       }
     }
 
 #ifdef _M_ARM64
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.arm64", false);
-#else
+#elif defined(_M_ARM)
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.arm", false);
+#else
+    // x86/x64: SLInitHook hook not applicable
+    enabled = false;
 #endif
     if (enabled) {
       WriteToLog("Hook CSLQuery::Initialize\r\n");
@@ -495,11 +524,16 @@ void Hook() {
 #else
 #error Unsupported architecture
 #endif
-      if (signPtr > TermSrvBase) {
-        WriteProcessMemory(GetCurrentProcess(), (LPVOID)signPtr, &jump,
-                           sizeof(FARJMP), &bw);
-        FlushInstructionCache(GetCurrentProcess(), (LPCVOID)signPtr,
-                              sizeof(FARJMP));
+      if (signPtr > TermSrvBase && signPtr + sizeof(FARJMP) <= TermSrvBase + termSrvSize) {
+        if (!PatchMemoryWrite((LPVOID)signPtr, &jump, sizeof(FARJMP))) {
+          WriteToLog("Error: Failed to write CSLQuery::Initialize hook\r\n");
+        }
+      } else {
+        WriteLogFormat(
+            "Warning: SLInit offset 0x%llX out of code range [0x%llX, 0x%llX)\r\n",
+            (ULONGLONG)signPtr,
+            (ULONGLONG)TermSrvBase,
+            (ULONGLONG)(TermSrvBase + termSrvSize));
       }
     }
   }

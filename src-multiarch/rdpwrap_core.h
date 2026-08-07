@@ -105,16 +105,16 @@ extern PLATFORM_DWORD TermSrvBase;
 extern FILE_VERSION FV;
 extern SERVICEMAIN _ServiceMain;
 extern SVCHOSTPUSHSERVICEGLOBALS _SvchostPushServiceGlobals;
-extern bool AlreadyHooked;
+extern LONG AlreadyHooked;
 
 std::string IniGetRaw(const ini::Parser& parser,
                       const char* sect,
                       const char* key,
                       const char* def_val);
-DWORD INIReadDWordHex(const ini::Parser& parser,
-                      const char* sect,
-                      const char* key,
-                      PLATFORM_DWORD def_val);
+PLATFORM_DWORD INIReadDWordHex(const ini::Parser& parser,
+                               const char* sect,
+                               const char* key,
+                               PLATFORM_DWORD def_val);
 void INIReadString(const ini::Parser& parser,
                    const char* sect,
                    const char* key,
@@ -140,6 +140,8 @@ HMODULE GetCurrentModule();
 bool GetModuleCodeSectionInfo(HMODULE hModule,
                               PLATFORM_DWORD* base_addr,
                               PLATFORM_DWORD* base_size);
+bool PatchMemoryWrite(LPVOID addr, LPCVOID data, SIZE_T size);
+bool PatchMemoryRead(LPVOID addr, LPVOID buf, SIZE_T size);
 void SetThreadsState(bool resume);
 BOOL __stdcall GetModuleVersion(LPCWSTR lptstrModuleName,
                                 FILE_VERSION* file_version);

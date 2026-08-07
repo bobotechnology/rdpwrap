@@ -23,7 +23,6 @@ bool OverrideSL(LPWSTR value_name, DWORD* value) {
 HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
                                                 DWORD* pdwValue) {
   DWORD dw = 0;
-  SIZE_T bw = 0;
 
   WriteLogFormat("Policy query: %S\r\n", pwszValueName);
 
@@ -33,10 +32,11 @@ HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
     return S_OK;
   }
 
-  WriteProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                     &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP), &bw);
-  FlushInstructionCache(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                        sizeof(FARJMP));
+  if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+                        &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+    WriteToLog("Error: Failed to restore Original Bytes\r\n");
+    return E_FAIL;
+  }
 
   HRESULT result = _SLGetWindowsInformationDWORD(pwszValueName, pdwValue);
   if (result == S_OK) {
@@ -45,10 +45,10 @@ HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
     WriteToLog("Policy request failed\r\n");
   }
 
-  WriteProcessMemory(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                     &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP), &bw);
-  FlushInstructionCache(GetCurrentProcess(), _SLGetWindowsInformationDWORD,
-                        sizeof(FARJMP));
+  if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+                        &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
+    WriteToLog("Error: Failed to restore Stub\r\n");
+  }
 
   return result;
 }
@@ -62,6 +62,11 @@ HRESULT __fastcall New_Win8SL(PWSTR pwszValueName, DWORD* pdwValue) {
     *pdwValue = dw;
     WriteLogFormat("Policy rewrite: %i\r\n", dw);
     return S_OK;
+  }
+
+  if (_SLGetWindowsInformationDWORD == NULL) {
+    WriteToLog("Error: SLGetWindowsInformationDWORD not available\r\n");
+    return E_FAIL;
   }
 
   HRESULT result = _SLGetWindowsInformationDWORD(pwszValueName, pdwValue);

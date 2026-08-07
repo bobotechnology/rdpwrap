@@ -14,4 +14,4 @@ PLATFORM_DWORD TermSrvBase = 0;
 FILE_VERSION FV = {};
 SERVICEMAIN _ServiceMain = nullptr;
 SVCHOSTPUSHSERVICEGLOBALS _SvchostPushServiceGlobals = nullptr;
-bool AlreadyHooked = false;
+LONG AlreadyHooked = 0;
