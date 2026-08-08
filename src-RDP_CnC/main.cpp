@@ -35,9 +35,8 @@ struct Settings {
 // Global variables
 static HWND g_hwnd;
 static Settings g_settings, g_saved;
-static bool g_ready=false; // Reserved for future use
-[[maybe_unused]] static auto& unused_ready = g_ready; // Suppress warning
-static HFONT g_uiFont=nullptr, g_boldFont=nullptr, g_headingFont=nullptr;
+static bool g_ready=false; // Set true after UI initialization completes
+static HFONT g_uiFont=nullptr, g_headingFont=nullptr;
 static HBRUSH g_backgroundBrush=nullptr;
 static double g_uiScale=1.0;
 static std::vector<HWND> g_headingControls;
@@ -95,9 +94,6 @@ static void modernizeUi() {
     wcscpy_s(normal.lfFaceName, L"Segoe UI");
     normal.lfQuality = CLEARTYPE_NATURAL_QUALITY;
     g_uiFont = CreateFontIndirectW(&normal);
-
-    normal.lfWeight = FW_SEMIBOLD;
-    g_boldFont = CreateFontIndirectW(&normal);
 
     normal.lfHeight = -MulDiv(11, dpi, 72);
     g_headingFont = CreateFontIndirectW(&normal);
@@ -356,6 +352,18 @@ static int wrapper(std::wstring& path) {
     return 0;
 }
 
+// Resolve the RDP Wrapper installation directory from the ServiceDll registry value.
+// Falls back to "C:\Program Files\RDP Wrapper" if the registry entry is unavailable.
+static std::wstring wrapperDir() {
+    std::wstring dll = regString(HKEY_LOCAL_MACHINE, L"SYSTEM\\CurrentControlSet\\Services\\TermService\\Parameters", L"ServiceDll");
+    if (!dll.empty()) {
+        dll = expandEnv(dll);
+        size_t slash = dll.find_last_of(L"\\/");
+        if (slash != std::wstring::npos) return dll.substr(0, slash);
+    }
+    return L"C:\\Program Files\\RDP Wrapper";
+}
+
 // Read settings from registry
 static void readSettings() {
     DWORD v;
@@ -435,8 +443,18 @@ static int supportLevel(const std::wstring& wrapperPath, const std::wstring& tsV
     if (!f) return 0;
 
     std::wstring line;
-    while (std::getline(f, line))
-        if (line.find(L"[" + tsVersion + L"]") != std::wstring::npos) return 2;
+    while (std::getline(f, line)) {
+        // Trim whitespace for robust matching
+        size_t first = line.find_first_not_of(L" \t\r\n");
+        size_t last = line.find_last_not_of(L" \t\r\n");
+        if (first == std::wstring::npos) continue;
+        std::wstring trimmed = line.substr(first, last - first + 1);
+        // Exact match against "[version]" section header
+        if (trimmed.length() >= 2 && trimmed.front() == L'[' && trimmed.back() == L']') {
+            std::wstring section = trimmed.substr(1, trimmed.length() - 2);
+            if (section == tsVersion) return 2;
+        }
+    }
 
     if (tsVersion.rfind(L"6.0.", 0) == 0 || tsVersion.rfind(L"6.1.", 0) == 0) return 1;
     return 0;
@@ -568,10 +586,12 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         else if (id == IDC_1920) launch(L"/v:127.0.0.2 /w:1920 /h:1080 /prompt");
         // Update button
         else if (id == IDC_UPDATE) {
-            if (GetFileAttributesW(L"C:\\Program Files\\RDP Wrapper\\RDPWInst.exe") == INVALID_FILE_ATTRIBUTES)
+            std::wstring inst = wrapperDir();
+            inst += L"\\RDPWInst.exe";
+            if (GetFileAttributesW(inst.c_str()) == INVALID_FILE_ATTRIBUTES)
                 MessageBoxW(h, L"RDPWInst.exe not found", L"Error", MB_ICONERROR);
             else
-                execWait(L"\"C:\\Program Files\\RDP Wrapper\\RDPWInst.exe\" -w");
+                execWait(L"\"" + inst + L"\" -w");
             status();
         }
         // Restart button
@@ -628,8 +648,19 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
     else if (m == WM_CREATE) {
         return 0;
     }
-    // Window destruction
+    // Window destruction — release GDI objects and subclass
     else if (m == WM_DESTROY) {
+        // Remove window properties (RDPColor) from all status controls
+        int statusIds[] = {IDC_WRAPPER, IDC_SERVICE, IDC_LISTENER, IDC_SUPPORT, IDC_PORT_VALIDATION};
+        for (int sid : statusIds) {
+            HWND ctrl = GetDlgItem(g_hwnd, sid);
+            if (ctrl) RemovePropW(ctrl, L"RDPColor");
+        }
+        // Remove the subclass before deleting the brush it references
+        RemoveWindowSubclass(g_hwnd, modernSubclass, 1);
+        if (g_uiFont) { DeleteObject(g_uiFont); g_uiFont = nullptr; }
+        if (g_headingFont) { DeleteObject(g_headingFont); g_headingFont = nullptr; }
+        if (g_backgroundBrush) { DeleteObject(g_backgroundBrush); g_backgroundBrush = nullptr; }
         PostQuitMessage(0);
     }
 
