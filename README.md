@@ -82,8 +82,8 @@ It's recommended to have original termsrv.dll file with the RDP Wrapper installa
 - **IA-64** for Itanium-based Windows Server? *Well, I have no idea* :)
 
 ### Building the binaries:
-- **x86 Delphi version** can be built with *Embarcadero RAD Studio 2010*
-- **x86/x64 C++ version** can be built with *Microsoft Visual Studio 2013*
+- **RDP_CnC** is a native C++17 Win32 application built with CMake and either
+  Visual Studio 2022 or MinGW-w64. See `src-RDP_CnC/README.md` for commands.
 
 [andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
 [mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)

@@ -36,3 +36,9 @@ FileContentIndex
 *.lastbuildstate
 *.iobj
 *.ipdb
+
+# CMake build artifacts
+build*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake

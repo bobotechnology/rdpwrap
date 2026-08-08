@@ -81,8 +81,8 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 - **IA-64** 用于基于 Itanium 的 Windows Server？*嗯，我不知道* :)
 
 ### 构建二进制文件：
-- **x86 Delphi 版本** 可以使用 *Embarcadero RAD Studio 2010* 构建
-- **x86/x64 C++ 版本** 可以使用 *Microsoft Visual Studio 2022* 构建
+- **RDP_CnC** 是原生 C++17 Win32 应用，可通过 CMake 配合 Visual Studio
+  2022 或 MinGW-w64 构建。构建命令见 `src-RDP_CnC/README.md`。
 
 [andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
 [mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
