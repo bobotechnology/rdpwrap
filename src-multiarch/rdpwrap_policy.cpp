@@ -32,7 +32,7 @@ HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
     return S_OK;
   }
 
-  if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+  if (!PatchMemoryWrite(reinterpret_cast<LPVOID>(_SLGetWindowsInformationDWORD),
                         &Old_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
     WriteToLog("Error: Failed to restore Original Bytes\r\n");
     return E_FAIL;
@@ -45,7 +45,7 @@ HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
     WriteToLog("Policy request failed\r\n");
   }
 
-  if (!PatchMemoryWrite(_SLGetWindowsInformationDWORD,
+  if (!PatchMemoryWrite(reinterpret_cast<LPVOID>(_SLGetWindowsInformationDWORD),
                         &Stub_SLGetWindowsInformationDWORD, sizeof(FARJMP))) {
     WriteToLog("Error: Failed to restore Stub\r\n");
   }

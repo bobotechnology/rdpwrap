@@ -29,24 +29,31 @@ jobs:
 
     steps:
     - name: ✨ Checkout repository  
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: 🎄 Download rdpwrap.ini in sebaxakerhtc/rdpwrap.ini  
       run: |
-        mv res/rdpwrap.ini bak/res/rdpwrap.ini.bak  
-        curl -L https://github.com/sebaxakerhtc/rdpwrap.ini/raw/master/rdpwrap.ini -o res/rdpwrap.ini  
-        echo "🎄 Downloaded rdpwrap.ini to res directory."
+        curl --fail --location --retry 3 --connect-timeout 15 \
+          https://raw.githubusercontent.com/sebaxakerhtc/rdpwrap.ini/master/rdpwrap.ini \
+          --output rdpwrap.ini.download
+        grep -q '^\[Main\]' rdpwrap.ini.download
+        grep -Eq '^Updated=[0-9]{4}-[0-9]{2}-[0-9]{2}$' rdpwrap.ini.download
+        grep -q '^\[SLPolicy\]' rdpwrap.ini.download
+        echo "🎄 Downloaded and validated rdpwrap.ini."
     
     - name: Check for rdpwrap.ini differences  
       id: diff-check  
       run: |
         # compare rdpwrap.ini and rdpwrap.ini.bak  
-        if diff -q res/rdpwrap.ini bak/res/rdpwrap.ini.bak > /dev/null; then  
+        if cmp -s res/rdpwrap.ini rdpwrap.ini.download; then
           echo "🎇 No differences found."
           echo "diff=true" >> $GITHUB_OUTPUT  
+          rm rdpwrap.ini.download
         else  
           echo "🎃 Differences found."
           echo "diff=false" >> $GITHUB_OUTPUT  
+          cp res/rdpwrap.ini bak/res/rdpwrap.ini.bak
+          mv rdpwrap.ini.download res/rdpwrap.ini
         fi
 
     - name: 🧨 Commit files  
@@ -54,18 +61,15 @@ jobs:
       run: |
         git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --local user.name "github-actions[bot]"
-        git add .
-        git commit -a -m "Automatic sync rdpwrap.ini from sebaxakerhtc/rdpwrap.ini"
+        git add -- res/rdpwrap.ini bak/res/rdpwrap.ini.bak
+        git commit -m "Automatic sync rdpwrap.ini from sebaxakerhtc/rdpwrap.ini"
         
     - name: 🎉 Push changes  
       if: steps.diff-check.outputs.diff == 'false'
-      uses: ad-m/github-push-action@master  
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: ${{ github.ref }}
-        force: true
+      run: git push origin HEAD:${{ github.ref_name }}
     
     - name: 🚀 Finish! Notice bobo download Server  
       if: steps.diff-check.outputs.diff == 'false'
+      continue-on-error: true
       run: |
-        curl -X GET 'https://api.rpyf.top/rdpwrap.php'
+        curl --fail --max-time 15 -X GET 'https://api.rpyf.top/rdpwrap.php'

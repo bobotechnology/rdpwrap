@@ -81,8 +81,23 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 - **IA-64** 用于基于 Itanium 的 Windows Server？*嗯，我不知道* :)
 
 ### 构建二进制文件：
-- **RDP_CnC** 是原生 C++17 Win32 应用，可通过 CMake 配合 Visual Studio
-  2022 或 MinGW-w64 构建。构建命令见 `src-RDP_CnC/README.md`。
+仓库根目录的 CMake 工程会统一构建 C++17 安装器、配置程序和 Wrapper DLL：
+
+```powershell
+# MinGW-w64
+cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mingw --parallel
+
+# Visual Studio（按需选择 Win32 或 x64）
+cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64
+cmake --build build-msvc --config Release --parallel
+```
+
+产物位于构建目录的 `bin` 子目录。仓库级原生 x64 构建会把刚构建的 x64
+`rdpwrap.dll`、`RDP_CnC.exe` 以及维护中的 `res/rdpwrap.ini` 嵌入
+`RDPWInst.exe`。若要生成能同时部署到 x64 Windows 的 Win32 安装器，请先
+单独构建 x64 DLL，并在配置 Win32 构建时传入
+`-DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll`。
 
 [andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
 [mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
@@ -111,8 +126,7 @@ RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此�
 | 文件名 | 描述 |
 | --------- | ----------- |
 | `RDPWInst.exe`  | RDP Wrapper 库安装程序/卸载程序 |
-| `RDPCheck.exe`  | 本地 RDP 检查工具（您可以检查 RDP 是否正常工作） |
-| `RDPConf.exe`   | RDP Wrapper 配置工具 |
+| `RDP_CnC.exe`   | RDP Wrapper 状态与配置程序 |
 | `install.bat`   | 快速安装批处理文件 |
 | `uninstall.bat` | 快速卸载批处理文件 |
 | `update.bat`    | 快速更新批处理文件 |

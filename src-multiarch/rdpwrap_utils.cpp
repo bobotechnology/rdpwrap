@@ -3,11 +3,18 @@
 #include "rdpwrap_core.h"
 
 #include <cstdarg>
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
+#include <vector>
 
 #include <tlhelp32.h>
+
+#ifdef _MSC_VER
+#pragma comment(lib, "Version.lib")
+#endif
 
 std::string IniGetRaw(const ini::Parser& parser,
                       const char* sect,
@@ -35,7 +42,14 @@ PLATFORM_DWORD INIReadDWordHex(const ini::Parser& parser,
   if (val_str.empty()) {
     return def_val;
   }
-  return strtoull(val_str.c_str(), nullptr, 16);
+  errno = 0;
+  char* end = nullptr;
+  const unsigned long long value = strtoull(val_str.c_str(), &end, 16);
+  if (errno == ERANGE || !end || *end != '\0' ||
+      value > (std::numeric_limits<PLATFORM_DWORD>::max)()) {
+    return def_val;
+  }
+  return static_cast<PLATFORM_DWORD>(value);
 }
 
 void INIReadString(const ini::Parser& parser,
@@ -54,6 +68,34 @@ int HexNibble(char c) {
   if (c >= 'a' && c <= 'f') return c - 'a' + 10;
   if (c >= 'A' && c <= 'F') return c - 'A' + 10;
   return -1;
+}
+
+bool QueryProductVersion(const wchar_t* filename, FILE_VERSION* file_version) {
+  if (!filename || !*filename || !file_version) return false;
+
+  DWORD ignored = 0;
+  const DWORD size = GetFileVersionInfoSizeW(filename, &ignored);
+  if (size == 0) return false;
+
+  std::vector<BYTE> data(size);
+  if (!GetFileVersionInfoW(filename, 0, size, data.data())) return false;
+
+  VS_FIXEDFILEINFO* fixed = nullptr;
+  UINT fixed_size = 0;
+  if (!VerQueryValueW(data.data(), L"\\", reinterpret_cast<void**>(&fixed),
+                      &fixed_size) ||
+      !fixed || fixed_size < sizeof(VS_FIXEDFILEINFO) ||
+      fixed->dwSignature != VS_FFI_SIGNATURE) {
+    return false;
+  }
+
+  // INI section names intentionally use ProductVersion only.  In particular,
+  // current Windows 11 termsrv.dll builds can report a 6.2 FileVersion while
+  // the supported configuration section is keyed by ProductVersion 10.0.
+  file_version->dwVersion = fixed->dwProductVersionMS;
+  file_version->Release = HIWORD(fixed->dwProductVersionLS);
+  file_version->Build = LOWORD(fixed->dwProductVersionLS);
+  return true;
 }
 }  // namespace
 
@@ -88,7 +130,8 @@ bool GetByteArrayFromIni(const ini::Parser& parser,
   }
 
   if ((hex.size() % 2) != 0) return false;
-  if (hex.size() > (max_len * 2)) hex.resize(max_len * 2);
+  const size_t max_characters = static_cast<size_t>(max_len) * 2;
+  if (hex.size() > max_characters) return false;
 
   for (size_t i = 0; i < hex.size(); i += 2) {
     int hi = HexNibble(hex[i]);
@@ -146,21 +189,17 @@ HMODULE GetCurrentModule() {
 bool GetModuleCodeSectionInfo(HMODULE h_module,
                               PLATFORM_DWORD* base_addr,
                               PLATFORM_DWORD* base_size) {
-  PIMAGE_DOS_HEADER p_dos_header;
-  PIMAGE_FILE_HEADER p_file_header;
-  PIMAGE_OPTIONAL_HEADER p_optional_header;
+  if (!h_module || !base_addr || !base_size) return false;
 
-  if (h_module == NULL) return false;
-
-  p_dos_header = reinterpret_cast<PIMAGE_DOS_HEADER>(h_module);
-  p_file_header = reinterpret_cast<PIMAGE_FILE_HEADER>(
-      reinterpret_cast<PBYTE>(h_module) + p_dos_header->e_lfanew + 4);
-  p_optional_header = reinterpret_cast<PIMAGE_OPTIONAL_HEADER>(p_file_header + 1);
+  const auto* dos = reinterpret_cast<const IMAGE_DOS_HEADER*>(h_module);
+  if (dos->e_magic != IMAGE_DOS_SIGNATURE || dos->e_lfanew <= 0) return false;
+  const auto* nt = reinterpret_cast<const IMAGE_NT_HEADERS*>(
+      reinterpret_cast<const BYTE*>(h_module) + dos->e_lfanew);
+  if (nt->Signature != IMAGE_NT_SIGNATURE || nt->OptionalHeader.SizeOfImage == 0)
+    return false;
 
   *base_addr = reinterpret_cast<PLATFORM_DWORD>(h_module);
-  *base_size = static_cast<PLATFORM_DWORD>(p_optional_header->SizeOfCode);
-
-  if (*base_addr <= 0 || *base_size <= 0) return false;
+  *base_size = static_cast<PLATFORM_DWORD>(nt->OptionalHeader.SizeOfImage);
   return true;
 }
 
@@ -237,75 +276,17 @@ bool PatchMemoryRead(LPVOID addr, LPVOID buf, SIZE_T size) {
 
 BOOL __stdcall GetModuleVersion(LPCWSTR lptstrModuleName,
                                 FILE_VERSION* file_version) {
-  typedef struct {
-    WORD wLength;
-    WORD wValueLength;
-    WORD wType;
-    WCHAR szKey[16];
-    WORD Padding1;
-    VS_FIXEDFILEINFO Value;
-    WORD Padding2;
-    WORD Children;
-  } VS_VERSIONINFO;
+  if (!lptstrModuleName || !file_version) return false;
+  HMODULE module = GetModuleHandleW(lptstrModuleName);
+  if (!module) return false;
 
-  HMODULE h_mod = GetModuleHandle(lptstrModuleName);
-  if (!h_mod) {
-    return false;
-  }
-
-  HRSRC h_resource_info = FindResourceW(h_mod, reinterpret_cast<LPCWSTR>(1),
-                                        reinterpret_cast<LPCWSTR>(0x10));
-  if (!h_resource_info) {
-    return false;
-  }
-
-  VS_VERSIONINFO* version_info =
-      reinterpret_cast<VS_VERSIONINFO*>(LoadResource(h_mod, h_resource_info));
-  if (!version_info) {
-    return false;
-  }
-
-  file_version->dwVersion = version_info->Value.dwFileVersionMS;
-  file_version->Release =
-      static_cast<WORD>(version_info->Value.dwFileVersionLS >> 16);
-  file_version->Build = static_cast<WORD>(version_info->Value.dwFileVersionLS);
-
-  return true;
+  std::vector<wchar_t> path(32768);
+  const DWORD length = GetModuleFileNameW(module, path.data(),
+                                          static_cast<DWORD>(path.size()));
+  if (length == 0 || length >= path.size()) return false;
+  return QueryProductVersion(path.data(), file_version);
 }
 
 BOOL __stdcall GetFileVersion(LPCWSTR lptstrFilename, FILE_VERSION* file_version) {
-  typedef struct {
-    WORD wLength;
-    WORD wValueLength;
-    WORD wType;
-    WCHAR szKey[16];
-    WORD Padding1;
-    VS_FIXEDFILEINFO Value;
-    WORD Padding2;
-    WORD Children;
-  } VS_VERSIONINFO;
-
-  HMODULE h_file = LoadLibraryExW(lptstrFilename, NULL, LOAD_LIBRARY_AS_DATAFILE);
-  if (!h_file) {
-    return false;
-  }
-
-  HRSRC h_resource_info = FindResourceW(h_file, reinterpret_cast<LPCWSTR>(1),
-                                        reinterpret_cast<LPCWSTR>(0x10));
-  if (!h_resource_info) {
-    return false;
-  }
-
-  VS_VERSIONINFO* version_info =
-      reinterpret_cast<VS_VERSIONINFO*>(LoadResource(h_file, h_resource_info));
-  if (!version_info) {
-    return false;
-  }
-
-  file_version->dwVersion = version_info->Value.dwFileVersionMS;
-  file_version->Release =
-      static_cast<WORD>(version_info->Value.dwFileVersionLS >> 16);
-  file_version->Build = static_cast<WORD>(version_info->Value.dwFileVersionLS);
-
-  return true;
+  return QueryProductVersion(lptstrFilename, file_version);
 }

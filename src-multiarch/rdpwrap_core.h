@@ -12,17 +12,6 @@ typedef HRESULT(WINAPI* SLGETWINDOWSINFORMATIONDWORD)(PWSTR pwszValueName,
 typedef VOID(WINAPI* SERVICEMAIN)(DWORD dwArgc, LPTSTR* lpszArgv);
 typedef VOID(WINAPI* SVCHOSTPUSHSERVICEGLOBALS)(PVOID lpGlobalData);
 
-struct INI_VAR_STRING {
-  char Name[255];
-  char Value[255];
-};
-
-struct INI_VAR_BYTEARRAY {
-  char Name[255];
-  BYTE ArraySize;
-  char Value[255];
-};
-
 typedef struct {
   union {
     struct {

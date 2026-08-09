@@ -82,8 +82,24 @@ It's recommended to have original termsrv.dll file with the RDP Wrapper installa
 - **IA-64** for Itanium-based Windows Server? *Well, I have no idea* :)
 
 ### Building the binaries:
-- **RDP_CnC** is a native C++17 Win32 application built with CMake and either
-  Visual Studio 2022 or MinGW-w64. See `src-RDP_CnC/README.md` for commands.
+The repository-level CMake project builds the C++17 installer, configuration
+application, and the wrapper DLL together:
+
+```powershell
+# MinGW-w64
+cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mingw --parallel
+
+# Visual Studio (choose Win32 or x64 as required)
+cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64
+cmake --build build-msvc --config Release --parallel
+```
+
+The binaries are written below the build directory's `bin` folder. Native x64
+repository builds embed the newly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
+the maintained `res/rdpwrap.ini` into `RDPWInst.exe`. For a Win32 installer
+that must also deploy to x64 Windows, pass a DLL from a separate x64 build as
+`-DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll` when configuring.
 
 [andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
 [mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
@@ -112,8 +128,7 @@ It's recommended to have original termsrv.dll file with the RDP Wrapper installa
 | File name | Description |
 | --------- | ----------- |
 | `RDPWInst.exe`  | RDP Wrapper Library installer/uninstaller |
-| `RDPCheck.exe`  | Local RDP Checker (you can check the RDP is working) |
-| `RDPConf.exe`   | RDP Wrapper Configuration |
+| `RDP_CnC.exe`   | RDP Wrapper status and configuration application |
 | `install.bat`   | Quick install batch file |
 | `uninstall.bat` | Quick uninstall batch file |
 | `update.bat`    | Quick update batch file |

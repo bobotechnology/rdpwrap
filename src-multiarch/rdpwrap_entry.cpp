@@ -2,7 +2,7 @@
 
 #include "rdpwrap_core.h"
 
-void WINAPI ServiceMain(DWORD dwArgc, LPTSTR* lpszArgv) {
+extern "C" void WINAPI ServiceMain(DWORD dwArgc, LPTSTR* lpszArgv) {
   WriteToLog(">>> ServiceMain\r\n");
   if (InterlockedCompareExchange(&AlreadyHooked, 1, 0) == 0) {
     Hook();
@@ -14,7 +14,7 @@ void WINAPI ServiceMain(DWORD dwArgc, LPTSTR* lpszArgv) {
   WriteToLog("<<< ServiceMain\r\n");
 }
 
-void WINAPI SvchostPushServiceGlobals(void* lpGlobalData) {
+extern "C" void WINAPI SvchostPushServiceGlobals(void* lpGlobalData) {
   WriteToLog(">>> SvchostPushServiceGlobals\r\n");
   if (InterlockedCompareExchange(&AlreadyHooked, 1, 0) == 0) {
     Hook();

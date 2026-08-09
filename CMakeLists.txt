@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(RDPWrap LANGUAGES CXX RC)
 
+add_subdirectory(src-multiarch)
+
 file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
 configure_file(src-RDP_CnC/app.rc.in "${CMAKE_BINARY_DIR}/generated/rdp_cnc.rc" @ONLY)
 
@@ -21,12 +23,19 @@ add_custom_command(TARGET RDP_CnC POST_BUILD
   VERBATIM
 )
 
+# Build the installer as part of the repository-level project so the primary
+# release tools are produced by one configure/build invocation.
+add_subdirectory(src-installer)
+
 install(TARGETS RDP_CnC RUNTIME DESTINATION .)
 
 if(MSVC)
-  target_compile_options(RDP_CnC PRIVATE /W4 /permissive-)
+  target_compile_options(RDP_CnC PRIVATE /W4 /permissive- /utf-8)
+  target_link_options(RDP_CnC PRIVATE /MANIFEST:NO)
+  set_property(TARGET RDP_CnC manifest_embedder PROPERTY
+    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 else()
   target_compile_options(RDP_CnC PRIVATE -Wall -Wextra -Wpedantic)
-  target_link_options(RDP_CnC PRIVATE -municode)
-  target_link_options(manifest_embedder PRIVATE -municode)
+  target_link_options(RDP_CnC PRIVATE -municode -static -static-libgcc -static-libstdc++)
+  target_link_options(manifest_embedder PRIVATE -municode -static -static-libgcc -static-libstdc++)
 endif()

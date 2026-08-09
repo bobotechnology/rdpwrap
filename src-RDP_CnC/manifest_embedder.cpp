@@ -11,11 +11,14 @@ int wmain(int argc, wchar_t** argv) {
   if (manifest.empty()) return 2;
   HANDLE update = BeginUpdateResourceW(argv[1], FALSE);
   if (!update) return 3;
-  if (!UpdateResourceW(update, MAKEINTRESOURCEW(24), MAKEINTRESOURCEW(1),
-                       MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL),
-                       manifest.data(), static_cast<DWORD>(manifest.size()))) {
-    EndUpdateResourceA(update, TRUE);
+  const DWORD size = static_cast<DWORD>(manifest.size());
+  const bool neutral = UpdateResourceW(update, MAKEINTRESOURCEW(24), MAKEINTRESOURCEW(1),
+      MAKELANGID(LANG_NEUTRAL, SUBLANG_NEUTRAL), manifest.data(), size) != FALSE;
+  const bool enUs = UpdateResourceW(update, MAKEINTRESOURCEW(24), MAKEINTRESOURCEW(1),
+      MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US), manifest.data(), size) != FALSE;
+  if (!neutral || !enUs) {
+    EndUpdateResourceW(update, TRUE);
     return 4;
   }
-  return EndUpdateResourceA(update, FALSE) ? 0 : 5;
+  return EndUpdateResourceW(update, FALSE) ? 0 : 5;
 }

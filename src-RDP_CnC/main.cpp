@@ -162,7 +162,7 @@ static bool regDword(HKEY root, const wchar_t* path, const wchar_t* name, DWORD&
 }
 
 // Registry DWORD write
-static void setDword(const wchar_t* path, const wchar_t* name, DWORD v) {
+static bool setDword(const wchar_t* path, const wchar_t* name, DWORD v) {
     if (wcscmp(name, L"PortNumber") == 0) {
         v = std::clamp<DWORD>(v, 1, 65535);
         g_settings.port = (int)v;
@@ -182,6 +182,7 @@ static void setDword(const wchar_t* path, const wchar_t* name, DWORD v) {
         swprintf_s(message, L"Cannot write registry value %s (error %ld).", name, e);
         MessageBoxW(g_hwnd, message, L"Registry error", MB_OK | MB_ICONERROR);
     }
+    return e == ERROR_SUCCESS;
 }
 
 // Wait for service to reach expected state
@@ -246,9 +247,22 @@ static bool runProcess(const std::wstring& cmd) {
     }
 
     CloseHandle(pi.hThread);
-    WaitForSingleObject(pi.hProcess, INFINITE);
+    const DWORD wait = WaitForSingleObject(pi.hProcess, 30000);
+    if (wait != WAIT_OBJECT_0) {
+        if (wait == WAIT_TIMEOUT) {
+            TerminateProcess(pi.hProcess, ERROR_TIMEOUT);
+            WaitForSingleObject(pi.hProcess, 5000);
+            MessageBoxW(g_hwnd, L"The command timed out after 30 seconds.",
+                        L"Command timeout", MB_OK | MB_ICONERROR);
+        } else {
+            MessageBoxW(g_hwnd, L"Could not wait for the command to finish.",
+                        L"Command error", MB_OK | MB_ICONERROR);
+        }
+        CloseHandle(pi.hProcess);
+        return false;
+    }
     DWORD code = 1;
-    GetExitCodeProcess(pi.hProcess, &code);
+    if (!GetExitCodeProcess(pi.hProcess, &code)) code = GetLastError();
     CloseHandle(pi.hProcess);
 
     if (code != 0) MessageBoxW(g_hwnd, L"The command returned a non-zero exit code.", L"Command error", MB_OK | MB_ICONERROR);
@@ -260,14 +274,18 @@ static bool execWait(const std::wstring& cmd) {
     if (cmd.rfind(L"taskkill /F /T /FI \"SERVICES eq ", 0) == 0) return true;
     if (cmd == L"net start TermService") return restartTermService();
 
-    const std::wstring netsh = L"netsh advfirewall firewall set rule name=\"Remote Desktop\" new localport=";
-    if (cmd.rfind(netsh, 0) == 0) {
-        std::wstring port = cmd.substr(netsh.size());
-        if (port.empty() || !std::all_of(port.begin(), port.end(), iswdigit)) return false;
-        std::wstring ps = L"powershell.exe -NoProfile -NonInteractive -Command \"Get-NetFirewallRule -Direction Inbound -Enabled True | Where-Object { ($_ | Get-NetFirewallServiceFilter).Service -ieq 'TermService' } | Get-NetFirewallPortFilter | Where-Object Protocol -eq 'TCP' | Set-NetFirewallPortFilter -LocalPort " + port + L"\"";
-        return runProcess(ps);
-    }
     return runProcess(cmd);
+}
+
+static bool updateWrapperFirewallPort(int port) {
+    if (port < 1 || port > 65535) return false;
+
+    const std::wstring netsh = L"\"" + expandEnv(L"%SystemRoot%\\System32\\netsh.exe") +
+                               L"\" advfirewall firewall set rule name=";
+    const std::wstring value = std::to_wstring(port);
+    const bool tcp = runProcess(netsh + L"\"RDP Wrapper TCP 3389\" protocol=TCP new localport=" + value);
+    const bool udp = runProcess(netsh + L"\"RDP Wrapper UDP 3389\" protocol=UDP new localport=" + value);
+    return tcp && udp;
 }
 
 // Get file version
@@ -391,25 +409,32 @@ static void readSettings() {
 }
 
 // Write settings to registry
-static void writeSettings() {
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"fDenyTSConnections", !g_settings.allow);
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"fSingleSessionPerUser", g_settings.single);
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"HonorLegacySettings", g_settings.custom);
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"PortNumber", g_settings.port);
+static bool writeSettings() {
+    bool registryOk = true;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"fDenyTSConnections", !g_settings.allow) && registryOk;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"fSingleSessionPerUser", g_settings.single) && registryOk;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server", L"HonorLegacySettings", g_settings.custom) && registryOk;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"PortNumber", g_settings.port) && registryOk;
 
     DWORD sec = g_settings.nla == 2 ? 2 : g_settings.nla;
     DWORD auth = g_settings.nla == 2 ? 1 : 0;
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"SecurityLayer", sec);
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"UserAuthentication", auth);
-    setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"Shadow", g_settings.shadow);
-    setDword(L"SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services", L"Shadow", g_settings.shadow);
-    setDword(L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", L"dontdisplaylastusername", g_settings.hide);
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"SecurityLayer", sec) && registryOk;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"UserAuthentication", auth) && registryOk;
+    registryOk = setDword(L"SYSTEM\\CurrentControlSet\\Control\\Terminal Server\\WinStations\\RDP-Tcp", L"Shadow", g_settings.shadow) && registryOk;
+    registryOk = setDword(L"SOFTWARE\\Policies\\Microsoft\\Windows NT\\Terminal Services", L"Shadow", g_settings.shadow) && registryOk;
+    registryOk = setDword(L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System", L"dontdisplaylastusername", g_settings.hide) && registryOk;
 
-    if (g_saved.port != g_settings.port)
-        execWait(L"netsh advfirewall firewall set rule name=\"Remote Desktop\" new localport=" + std::to_wstring(g_settings.port));
+    if (!registryOk) return false;
+
+    if (g_saved.port != g_settings.port && !updateWrapperFirewallPort(g_settings.port)) {
+        MessageBoxW(g_hwnd,
+                    L"The RDP port was saved, but one or more RDP Wrapper firewall rules could not be updated.",
+                    L"Firewall warning", MB_OK | MB_ICONWARNING);
+    }
 
     g_saved = g_settings;
     EnableWindow(GetDlgItem(g_hwnd, IDC_APPLY), FALSE);
+    return true;
 }
 
 // Helper to add controls
@@ -559,9 +584,7 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
             g_settings.nla = (int)SendMessageW(GetDlgItem(h, IDC_NLA), CB_GETCURSEL, 0, 0);
             g_settings.shadow = (int)SendMessageW(GetDlgItem(h, IDC_SHADOW), CB_GETCURSEL, 0, 0);
 
-            writeSettings();
-
-            if (id == IDC_OK) DestroyWindow(h);
+            if (writeSettings() && id == IDC_OK) DestroyWindow(h);
         }
         // Cancel button
         else if (id == IDC_CANCEL) {
