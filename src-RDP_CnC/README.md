@@ -27,3 +27,14 @@ cmake --build build-vs --config Release
 
 The executable requests administrator privileges because its settings are
 stored below `HKEY_LOCAL_MACHINE` and service control also requires elevation.
+
+## Language
+
+The interface automatically uses Simplified Chinese when the Windows display
+language is Chinese, and English otherwise. The automatic choice can be
+overridden when launching the program:
+
+```powershell
+RDP_CnC.exe /lang=zh-CN
+RDP_CnC.exe /lang=en-US
+```

@@ -40,6 +40,25 @@ static HFONT g_uiFont=nullptr, g_headingFont=nullptr;
 static HBRUSH g_backgroundBrush=nullptr;
 static double g_uiScale=1.0;
 static std::vector<HWND> g_headingControls;
+static bool g_chinese=false;
+
+// Use Simplified Chinese on Chinese Windows. The command-line switches
+// /lang=zh-CN and /lang=en-US can be used to override the system language.
+static const wchar_t* tr(const wchar_t* english, const wchar_t* chinese) {
+    return g_chinese ? chinese : english;
+}
+
+static void selectLanguage(const wchar_t* commandLine) {
+    std::wstring args = commandLine ? commandLine : L"";
+    std::transform(args.begin(), args.end(), args.begin(), towlower);
+    if (args.find(L"/lang=zh") != std::wstring::npos || args.find(L"--lang=zh") != std::wstring::npos) {
+        g_chinese = true;
+    } else if (args.find(L"/lang=en") != std::wstring::npos || args.find(L"--lang=en") != std::wstring::npos) {
+        g_chinese = false;
+    } else {
+        g_chinese = PRIMARYLANGID(GetUserDefaultUILanguage()) == LANG_CHINESE;
+    }
+}
 
 // Modern UI subclass for better appearance
 static LRESULT CALLBACK modernSubclass(HWND hwnd, UINT message, WPARAM wp, LPARAM lp, UINT_PTR, DWORD_PTR) {
@@ -179,8 +198,9 @@ static bool setDword(const wchar_t* path, const wchar_t* name, DWORD v) {
     }
     if (e != ERROR_SUCCESS) {
         wchar_t message[256];
-        swprintf_s(message, L"Cannot write registry value %s (error %ld).", name, e);
-        MessageBoxW(g_hwnd, message, L"Registry error", MB_OK | MB_ICONERROR);
+        swprintf_s(message, tr(L"Cannot write registry value %s (error %ld).",
+                              L"无法写入注册表值 %s（错误 %ld）。"), name, e);
+        MessageBoxW(g_hwnd, message, tr(L"Registry error", L"注册表错误"), MB_OK | MB_ICONERROR);
     }
     return e == ERROR_SUCCESS;
 }
@@ -227,7 +247,10 @@ static bool restartTermService() {
     }
     CloseServiceHandle(manager);
 
-    if (!ok) MessageBoxW(g_hwnd, L"Could not restart TermService through Service Control Manager.", L"Service error", MB_OK | MB_ICONERROR);
+    if (!ok) MessageBoxW(g_hwnd,
+                         tr(L"Could not restart TermService through Service Control Manager.",
+                            L"无法通过服务控制管理器重启 TermService。"),
+                         tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
     return ok;
 }
 
@@ -242,7 +265,8 @@ static bool runProcess(const std::wstring& cmd) {
     si.wShowWindow = SW_HIDE;
 
     if (!CreateProcessW(nullptr, buf.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        MessageBoxW(g_hwnd, L"CreateProcess failed.", L"Error", MB_ICONERROR);
+        MessageBoxW(g_hwnd, tr(L"CreateProcess failed.", L"创建进程失败。"),
+                    tr(L"Error", L"错误"), MB_ICONERROR);
         return false;
     }
 
@@ -252,11 +276,11 @@ static bool runProcess(const std::wstring& cmd) {
         if (wait == WAIT_TIMEOUT) {
             TerminateProcess(pi.hProcess, ERROR_TIMEOUT);
             WaitForSingleObject(pi.hProcess, 5000);
-            MessageBoxW(g_hwnd, L"The command timed out after 30 seconds.",
-                        L"Command timeout", MB_OK | MB_ICONERROR);
+            MessageBoxW(g_hwnd, tr(L"The command timed out after 30 seconds.", L"命令执行超过 30 秒，已超时。"),
+                        tr(L"Command timeout", L"命令超时"), MB_OK | MB_ICONERROR);
         } else {
-            MessageBoxW(g_hwnd, L"Could not wait for the command to finish.",
-                        L"Command error", MB_OK | MB_ICONERROR);
+            MessageBoxW(g_hwnd, tr(L"Could not wait for the command to finish.", L"无法等待命令执行完成。"),
+                        tr(L"Command error", L"命令错误"), MB_OK | MB_ICONERROR);
         }
         CloseHandle(pi.hProcess);
         return false;
@@ -265,7 +289,9 @@ static bool runProcess(const std::wstring& cmd) {
     if (!GetExitCodeProcess(pi.hProcess, &code)) code = GetLastError();
     CloseHandle(pi.hProcess);
 
-    if (code != 0) MessageBoxW(g_hwnd, L"The command returned a non-zero exit code.", L"Command error", MB_OK | MB_ICONERROR);
+    if (code != 0) MessageBoxW(g_hwnd,
+                               tr(L"The command returned a non-zero exit code.", L"命令返回了非零退出代码。"),
+                               tr(L"Command error", L"命令错误"), MB_OK | MB_ICONERROR);
     return code == 0;
 }
 
@@ -428,8 +454,9 @@ static bool writeSettings() {
 
     if (g_saved.port != g_settings.port && !updateWrapperFirewallPort(g_settings.port)) {
         MessageBoxW(g_hwnd,
-                    L"The RDP port was saved, but one or more RDP Wrapper firewall rules could not be updated.",
-                    L"Firewall warning", MB_OK | MB_ICONWARNING);
+                    tr(L"The RDP port was saved, but one or more RDP Wrapper firewall rules could not be updated.",
+                       L"RDP 端口已保存，但一个或多个 RDP Wrapper 防火墙规则更新失败。"),
+                    tr(L"Firewall warning", L"防火墙警告"), MB_OK | MB_ICONWARNING);
     }
 
     g_saved = g_settings;
@@ -499,21 +526,28 @@ static void status() {
     int w = wrapper(p);
 
     // Update status indicators with better styling
-    SetWindowTextW(GetDlgItem(g_hwnd, IDC_WRAPPER), w < 0 ? L"Unknown" : w == 0 ? L"Not installed" : w == 1 ? L"Installed" : L"3rd-party");
+    SetWindowTextW(GetDlgItem(g_hwnd, IDC_WRAPPER), w < 0 ? tr(L"Unknown", L"未知") :
+                   w == 0 ? tr(L"Not installed", L"未安装") :
+                   w == 1 ? tr(L"Installed", L"已安装") : tr(L"3rd-party", L"第三方组件"));
     setStatusColor(IDC_WRAPPER, w == 1 ? RGB(0, 150, 0) : (w == 2 ? RGB(190, 0, 0) : RGB(100, 100, 100)));
 
     int s = serviceState();
-    SetWindowTextW(GetDlgItem(g_hwnd, IDC_SERVICE), s == SERVICE_RUNNING ? L"Running" : s == SERVICE_STOPPED ? L"Stopped" :
-                  s == SERVICE_START_PENDING ? L"Starting..." : s == SERVICE_STOP_PENDING ? L"Stopping..." :
-                  s < 0 ? L"Unknown" : L"Pending");
+    SetWindowTextW(GetDlgItem(g_hwnd, IDC_SERVICE), s == SERVICE_RUNNING ? tr(L"Running", L"正在运行") :
+                  s == SERVICE_STOPPED ? tr(L"Stopped", L"已停止") :
+                  s == SERVICE_START_PENDING ? tr(L"Starting...", L"正在启动…") :
+                  s == SERVICE_STOP_PENDING ? tr(L"Stopping...", L"正在停止…") :
+                  s < 0 ? tr(L"Unknown", L"未知") : tr(L"Pending", L"等待中"));
     setStatusColor(IDC_SERVICE, s == SERVICE_RUNNING ? RGB(0, 150, 0) : (s == SERVICE_STOPPED ? RGB(190, 0, 0) : RGB(100, 100, 100)));
 
     bool listening = listener();
-    SetWindowTextW(GetDlgItem(g_hwnd, IDC_LISTENER), listening ? L"Listening" : L"Not listening");
+    SetWindowTextW(GetDlgItem(g_hwnd, IDC_LISTENER), listening ? tr(L"Listening", L"正在监听") : tr(L"Not listening", L"未监听"));
     setStatusColor(IDC_LISTENER, listening ? RGB(0, 150, 0) : RGB(190, 0, 0));
 
     std::wstring wrapVer = p.empty() ? L"N/A" : versionOf(p);
     std::wstring tsVer = versionOf(expandEnv(L"%SystemRoot%\\System32\\termsrv.dll"), true);
+
+    if (g_chinese && wrapVer == L"N/A") wrapVer = L"无法获取";
+    if (g_chinese && tsVer == L"N/A") tsVer = L"无法获取";
 
     SetWindowTextW(GetDlgItem(g_hwnd, IDC_WRAPVER), wrapVer.c_str());
     SetWindowTextW(GetDlgItem(g_hwnd, IDC_TSVERSION), tsVer.c_str());
@@ -522,7 +556,9 @@ static void status() {
     HWND label = GetDlgItem(g_hwnd, IDC_SUPPORT);
     if (!label) label = add(L"STATIC", L"", SS_CENTER, IDC_SUPPORT, 20, 163, 240, 18);
 
-    SetWindowTextW(label, level < 0 ? L"Unknown" : level == 2 ? L"Fully supported" : level == 1 ? L"Partial support" : L"Not supported");
+    SetWindowTextW(label, level < 0 ? tr(L"Unknown", L"未知") :
+                   level == 2 ? tr(L"Fully supported", L"完全支持") :
+                   level == 1 ? tr(L"Partial support", L"部分支持") : tr(L"Not supported", L"不支持"));
     setStatusColor(IDC_SUPPORT, level == 2 ? RGB(0, 150, 0) : (level == 1 ? RGB(140, 110, 0) : RGB(190, 0, 0)));
 }
 
@@ -530,7 +566,8 @@ static void status() {
 static void launch(const wchar_t* args) {
     HINSTANCE result = ShellExecuteW(g_hwnd, L"open", L"mstsc.exe", args, nullptr, SW_SHOW);
     if ((INT_PTR)result <= 32)
-        MessageBoxW(g_hwnd, L"Could not start mstsc.exe.", L"Launch error", MB_OK | MB_ICONERROR);
+        MessageBoxW(g_hwnd, tr(L"Could not start mstsc.exe.", L"无法启动 mstsc.exe。"),
+                    tr(L"Launch error", L"启动错误"), MB_OK | MB_ICONERROR);
 }
 
 // Validate port input
@@ -575,11 +612,11 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
             int port = _wtoi(b);
 
             if (!validatePort(port)) {
-                showValidationFeedback(false, L"Port must be between 1 and 65535");
+                showValidationFeedback(false, tr(L"Port must be between 1 and 65535", L"端口必须介于 1 和 65535 之间"));
                 return 0;
             }
 
-            showValidationFeedback(true, L"Port is valid");
+            showValidationFeedback(true, tr(L"Port is valid", L"端口有效"));
             g_settings.port = std::clamp(port, 1, 65535);
             g_settings.nla = (int)SendMessageW(GetDlgItem(h, IDC_NLA), CB_GETCURSEL, 0, 0);
             g_settings.shadow = (int)SendMessageW(GetDlgItem(h, IDC_SHADOW), CB_GETCURSEL, 0, 0);
@@ -592,7 +629,10 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         }
         // License button
         else if (id == IDC_LICENSE) {
-            MessageBoxW(h, L"RDP_CnC\n\nCopyright 2017-2024 Stas'M Corp., sebaxakerhtc and bobo.\nLicensed under the Apache License, Version 2.0.\n\nYou may obtain a copy of the License at\nhttp://www.apache.org/licenses/LICENSE-2.0", L"License", MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(h,
+                        tr(L"RDP_CnC\n\nCopyright 2017-2024 Stas'M Corp., sebaxakerhtc and bobo.\nLicensed under the Apache License, Version 2.0.\n\nYou may obtain a copy of the License at\nhttp://www.apache.org/licenses/LICENSE-2.0",
+                           L"RDP_CnC\n\n版权所有 2017-2024 Stas'M Corp.、sebaxakerhtc 和 bobo。\n基于 Apache License 2.0 版授权。\n\n许可证全文：\nhttp://www.apache.org/licenses/LICENSE-2.0"),
+                        tr(L"License", L"许可协议"), MB_OK | MB_ICONINFORMATION);
         }
         // MSTSC buttons
         else if (id == IDC_MSTSC) {
@@ -612,14 +652,16 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
             std::wstring inst = wrapperDir();
             inst += L"\\RDPWInst.exe";
             if (GetFileAttributesW(inst.c_str()) == INVALID_FILE_ATTRIBUTES)
-                MessageBoxW(h, L"RDPWInst.exe not found", L"Error", MB_ICONERROR);
+                MessageBoxW(h, tr(L"RDPWInst.exe not found", L"未找到 RDPWInst.exe"),
+                            tr(L"Error", L"错误"), MB_ICONERROR);
             else
                 execWait(L"\"" + inst + L"\" -w");
             status();
         }
         // Restart button
         else if (id == IDC_RESTART) {
-            if (MessageBoxW(h, L"Are you sure you want to restart Terminal Server?", L"Warning", MB_YESNO | MB_ICONWARNING) == IDYES) {
+            if (MessageBoxW(h, tr(L"Are you sure you want to restart Terminal Server?", L"确定要重启远程桌面服务吗？"),
+                            tr(L"Warning", L"警告"), MB_YESNO | MB_ICONWARNING) == IDYES) {
                 execWait(L"taskkill /F /T /FI \"SERVICES eq UmTermService\"");
                 execWait(L"net start TermService");
                 status();
@@ -632,24 +674,33 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
             int port = _wtoi(b);
 
             if (port == 0 && wcslen(b) > 0) {
-                showValidationFeedback(false, L"Port must be a number");
+                showValidationFeedback(false, tr(L"Port must be a number", L"端口必须是数字"));
             } else if (!validatePort(port)) {
-                showValidationFeedback(false, L"Port must be between 1 and 65535");
+                showValidationFeedback(false, tr(L"Port must be between 1 and 65535", L"端口必须介于 1 和 65535 之间"));
             } else if (port == 3389) {
-                showValidationFeedback(true, L"Using default RDP port");
+                showValidationFeedback(true, tr(L"Using default RDP port", L"当前使用默认 RDP 端口"));
             } else {
-                showValidationFeedback(true, L"Port is valid");
+                showValidationFeedback(true, tr(L"Port is valid", L"端口有效"));
             }
         }
         // Help buttons
         else if (id == IDC_HELP_PORT) {
-            MessageBoxW(h, L"RDP Port: The TCP port used for Remote Desktop connections.\n\nDefault: 3389\nRange: 1-65535\n\nChanging the port may require firewall configuration.", L"Port Help", MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(h,
+                        tr(L"RDP Port: The TCP port used for Remote Desktop connections.\n\nDefault: 3389\nRange: 1-65535\n\nChanging the port may require firewall configuration.",
+                           L"RDP 端口：远程桌面连接使用的 TCP 端口。\n\n默认值：3389\n范围：1-65535\n\n更改端口后可能需要配置防火墙。"),
+                        tr(L"Port Help", L"端口帮助"), MB_OK | MB_ICONINFORMATION);
         }
         else if (id == IDC_HELP_AUTH) {
-            MessageBoxW(h, L"Authentication Mode:\n\n- GUI Authentication: Simple but less secure\n- Default RDP Authentication: Balanced security and ease of use\n- Network Level Authentication: Most secure, requires client support", L"Authentication Help", MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(h,
+                        tr(L"Authentication Mode:\n\n- GUI Authentication: Simple but less secure\n- Default RDP Authentication: Balanced security and ease of use\n- Network Level Authentication: Most secure, requires client support",
+                           L"连接安全模式：\n\n- 传统 RDP 模式：使用传统 RDP 加密，兼容性较好但安全性较低\n- 自动协商模式：自动选择客户端支持的最安全方式\n- 网络级别身份验证 (NLA)：建立会话前验证用户身份，安全性最高，建议使用"),
+                        tr(L"Authentication Help", L"连接安全模式帮助"), MB_OK | MB_ICONINFORMATION);
         }
         else if (id == IDC_HELP_SHADOW) {
-            MessageBoxW(h, L"Remote Desktop Shadowing:\n\n- No shadowing: Users cannot be shadowed\n- Full control: Administrators can take control of sessions\n- View only: Administrators can only view sessions", L"Shadowing Help", MB_OK | MB_ICONINFORMATION);
+            MessageBoxW(h,
+                        tr(L"Remote Desktop Shadowing:\n\n- No shadowing: Users cannot be shadowed\n- Full control: Administrators can take control of sessions\n- View only: Administrators can only view sessions",
+                           L"远程控制远程桌面服务用户会话：\n\n- 不允许远程控制\n- 经用户授权或不经用户授权完全控制\n- 经用户授权或不经用户授权查看会话"),
+                        tr(L"Shadowing Help", L"远程控制帮助"), MB_OK | MB_ICONINFORMATION);
         }
         if (g_ready && (id == IDC_ALLOW || id == IDC_SINGLE || id == IDC_CUSTOM ||
                         id == IDC_HIDE || id == IDC_PORT || id == IDC_NLA || id == IDC_SHADOW))
@@ -661,7 +712,8 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
     }
     else if (m == WM_CLOSE) {
         if (IsWindowEnabled(GetDlgItem(h, IDC_APPLY)) &&
-            MessageBoxW(h, L"Settings are not saved. Do you want to exit?", L"Warning",
+            MessageBoxW(h, tr(L"Settings are not saved. Do you want to exit?", L"设置尚未保存，确定要退出吗？"),
+                        tr(L"Warning", L"警告"),
                         MB_YESNO | MB_ICONWARNING) != IDYES)
             return 0;
         DestroyWindow(h);
@@ -692,7 +744,9 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
 
 // Main entry point
 #define wWinMain rdpMain
-int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int n) {
+int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR commandLine, int n) {
+    selectLanguage(commandLine);
+
     INITCOMMONCONTROLSEX ic{sizeof(ic), ICC_TAB_CLASSES};
     if (!InitCommonControlsEx(&ic)) return 11;
 
@@ -704,73 +758,74 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR, int n) {
     wc.lpszClassName = L"RDP_CnC";
     RegisterClassW(&wc);
 
-    g_hwnd = CreateWindowW(wc.lpszClassName, L"Remote Desktop Protocol Configuration",
+    g_hwnd = CreateWindowW(wc.lpszClassName,
+                          tr(L"Remote Desktop Protocol Configuration", L"RDP Wrapper 配置工具"),
                           WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                           0, 0, 570, 480, nullptr, nullptr, hi, nullptr);
     if (!g_hwnd) return 12;
 
-    addHeading(L"System status", 16, 10, 180);
-    add(L"STATIC", L"Wrapper", 0, 0, 16, 39, 115, 20);
-    add(L"STATIC", L"Service", 0, 0, 154, 39, 115, 20);
-    add(L"STATIC", L"Listener", 0, 0, 292, 39, 115, 20);
-    add(L"STATIC", L"Support", 0, 0, 430, 39, 120, 20);
-    add(L"STATIC", L"Unknown", 0, IDC_WRAPPER, 16, 62, 115, 20);
-    add(L"STATIC", L"Unknown", 0, IDC_SERVICE, 154, 62, 115, 20);
-    add(L"STATIC", L"Unknown", 0, IDC_LISTENER, 292, 62, 115, 20);
-    add(L"STATIC", L"Unknown", 0, IDC_SUPPORT, 430, 62, 120, 20);
-    add(L"STATIC", L"Wrapper version", 0, 0, 16, 88, 105, 20);
-    add(L"STATIC", L"N/A", 0, IDC_WRAPVER, 154, 88, 115, 20);
-    add(L"STATIC", L"termsrv version", 0, 0, 292, 88, 105, 20);
-    add(L"STATIC", L"N/A", 0, IDC_TSVERSION, 430, 88, 120, 20);
+    addHeading(tr(L"System status", L"系统状态"), 16, 10, 180);
+    add(L"STATIC", tr(L"Wrapper", L"RDP Wrapper"), 0, 0, 16, 39, 115, 20);
+    add(L"STATIC", tr(L"Service", L"远程桌面服务"), 0, 0, 154, 39, 115, 20);
+    add(L"STATIC", tr(L"Listener", L"RDP 监听器"), 0, 0, 292, 39, 115, 20);
+    add(L"STATIC", tr(L"Support", L"版本支持"), 0, 0, 430, 39, 120, 20);
+    add(L"STATIC", tr(L"Unknown", L"未知"), 0, IDC_WRAPPER, 16, 62, 115, 20);
+    add(L"STATIC", tr(L"Unknown", L"未知"), 0, IDC_SERVICE, 154, 62, 115, 20);
+    add(L"STATIC", tr(L"Unknown", L"未知"), 0, IDC_LISTENER, 292, 62, 115, 20);
+    add(L"STATIC", tr(L"Unknown", L"未知"), 0, IDC_SUPPORT, 430, 62, 120, 20);
+    add(L"STATIC", tr(L"Wrapper version", L"RDP Wrapper 版本："), 0, 0, 16, 88, 130, 20);
+    add(L"STATIC", tr(L"N/A", L"无法获取"), 0, IDC_WRAPVER, 154, 88, 115, 20);
+    add(L"STATIC", tr(L"termsrv version", L"termsrv.dll 版本："), 0, 0, 292, 88, 130, 20);
+    add(L"STATIC", tr(L"N/A", L"无法获取"), 0, IDC_TSVERSION, 430, 88, 120, 20);
     add(L"STATIC", L"", SS_ETCHEDHORZ, 0, 16, 112, 538, 1);
 
-    addHeading(L"Remote Desktop", 16, 116, 220);
-    add(L"STATIC", L"RDP port", 0, 0, 16, 148, 80, 22);
+    addHeading(tr(L"Remote Desktop", L"远程桌面设置"), 16, 116, 220);
+    add(L"STATIC", tr(L"RDP port", L"RDP 端口"), 0, 0, 16, 148, 80, 22);
     add(L"EDIT", L"3389", WS_BORDER | ES_NUMBER, IDC_PORT, 100, 147, 140, 22);
     add(L"BUTTON", L"?", BS_PUSHBUTTON, IDC_HELP_PORT, 248, 147, 22, 22);
     add(L"STATIC", L"", 0, IDC_PORT_VALIDATION, 16, 176, 250, 20);
-    add(L"BUTTON", L"Enable Remote Desktop", BS_AUTOCHECKBOX, IDC_ALLOW, 16, 202, 250, 26);
-    add(L"BUTTON", L"Single session per user", BS_AUTOCHECKBOX, IDC_SINGLE, 16, 232, 250, 26);
-    add(L"BUTTON", L"Hide users on logon screen", BS_AUTOCHECKBOX, IDC_HIDE, 16, 262, 260, 26);
+    add(L"BUTTON", tr(L"Enable Remote Desktop", L"启用远程桌面"), BS_AUTOCHECKBOX, IDC_ALLOW, 16, 202, 250, 26);
+    add(L"BUTTON", tr(L"Single session per user", L"将用户限制到单独的会话"), BS_AUTOCHECKBOX, IDC_SINGLE, 16, 232, 250, 26);
+    add(L"BUTTON", tr(L"Hide users on logon screen", L"不显示上次登录的用户名"), BS_AUTOCHECKBOX, IDC_HIDE, 16, 262, 260, 26);
 
-    addHeading(L"Session policy", 295, 116, 220);
-    add(L"STATIC", L"Authentication mode", 0, 0, 295, 148, 170, 22);
+    addHeading(tr(L"Session policy", L"会话设置"), 295, 116, 220);
+    add(L"STATIC", tr(L"Authentication mode", L"连接安全模式"), 0, 0, 295, 148, 170, 22);
     add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_BORDER, IDC_NLA, 295, 172, 220, 110);
     add(L"BUTTON", L"?", BS_PUSHBUTTON, IDC_HELP_AUTH, 526, 172, 22, 22);
-    add(L"STATIC", L"Shadow mode", 0, 0, 295, 210, 150, 22);
+    add(L"STATIC", tr(L"Shadow mode", L"远程控制"), 0, 0, 295, 210, 150, 22);
     add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_BORDER, IDC_SHADOW, 295, 234, 220, 150);
     add(L"BUTTON", L"?", BS_PUSHBUTTON, IDC_HELP_SHADOW, 526, 234, 22, 22);
-    add(L"BUTTON", L"Allow unlisted RemoteApps", BS_AUTOCHECKBOX, IDC_CUSTOM, 295, 270, 250, 26);
+    add(L"BUTTON", tr(L"Allow unlisted RemoteApps", L"允许启动未发布的 RemoteApp"), BS_AUTOCHECKBOX, IDC_CUSTOM, 295, 270, 250, 26);
 
     add(L"STATIC", L"", SS_ETCHEDHORZ, 0, 16, 302, 538, 1);
-    addHeading(L"Maintenance", 16, 313, 190);
-    add(L"BUTTON", L"Update INI", BS_PUSHBUTTON, IDC_UPDATE, 16, 345, 110, 30);
-    add(L"BUTTON", L"Restart service", BS_PUSHBUTTON, IDC_RESTART, 136, 345, 130, 30);
-    add(L"STATIC", L"Local connection test", 0, 0, 295, 318, 170, 22);
+    addHeading(tr(L"Maintenance", L"维护"), 16, 313, 190);
+    add(L"BUTTON", tr(L"Update INI", L"更新 INI 配置"), BS_PUSHBUTTON, IDC_UPDATE, 16, 345, 110, 30);
+    add(L"BUTTON", tr(L"Restart service", L"重启服务"), BS_PUSHBUTTON, IDC_RESTART, 136, 345, 130, 30);
+    add(L"STATIC", tr(L"Local connection test", L"本地连接测试"), 0, 0, 295, 318, 170, 22);
     HWND mstscMode = add(L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_BORDER,
                          IDC_MSTSC_MODE, 295, 345, 150, 150);
-    add(L"BUTTON", L"Connect", BS_PUSHBUTTON, IDC_MSTSC, 463, 345, 90, 22);
-    for (const wchar_t* mode : {L"Fullscreen", L"800 x 600", L"1024 x 768",
+    add(L"BUTTON", tr(L"Connect", L"连接"), BS_PUSHBUTTON, IDC_MSTSC, 463, 345, 90, 22);
+    for (const wchar_t* mode : {tr(L"Fullscreen", L"全屏"), L"800 x 600", L"1024 x 768",
                                 L"1366 x 768", L"1920 x 1080"})
         SendMessageW(mstscMode, CB_ADDSTRING, 0, (LPARAM)mode);
     SendMessageW(mstscMode, CB_SETCURSEL, 0, 0);
 
     add(L"STATIC", L"", SS_ETCHEDHORZ, 0, 16, 390, 538, 1);
-    add(L"BUTTON", L"License", BS_PUSHBUTTON, IDC_LICENSE, 16, 407, 90, 30);
-    add(L"BUTTON", L"Apply", BS_DEFPUSHBUTTON, IDC_APPLY, 336, 407, 100, 30);
-    add(L"BUTTON", L"Close", BS_PUSHBUTTON, IDC_CANCEL, 446, 407, 108, 30);
+    add(L"BUTTON", tr(L"License", L"许可协议"), BS_PUSHBUTTON, IDC_LICENSE, 16, 407, 90, 30);
+    add(L"BUTTON", tr(L"Apply", L"应用"), BS_DEFPUSHBUTTON, IDC_APPLY, 336, 407, 100, 30);
+    add(L"BUTTON", tr(L"Close", L"关闭"), BS_PUSHBUTTON, IDC_CANCEL, 446, 407, 108, 30);
 
     // Initialize controls
-    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)L"GUI Authentication Only");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)L"Default RDP Authentication");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)L"Network Level Authentication");
+    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)tr(L"GUI Authentication Only", L"传统 RDP 模式"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)tr(L"Default RDP Authentication", L"自动协商模式"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_ADDSTRING, 0, (LPARAM)tr(L"Network Level Authentication", L"网络级别身份验证 (NLA)"));
     SendMessageW(GetDlgItem(g_hwnd, IDC_NLA), CB_SETCURSEL, 1, 0);
 
-    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)L"Disable Shadowing");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)L"Full access with user's permission");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)L"Full access without permission");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)L"View only with user's permission");
-    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)L"View only without permission");
+    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)tr(L"Disable Shadowing", L"不允许远程控制"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)tr(L"Full access with user's permission", L"经用户授权完全控制"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)tr(L"Full access without permission", L"不经用户授权完全控制"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)tr(L"View only with user's permission", L"经用户授权查看会话"));
+    SendMessageW(GetDlgItem(g_hwnd, IDC_SHADOW), CB_ADDSTRING, 0, (LPARAM)tr(L"View only without permission", L"不经用户授权查看会话"));
 
     readSettings();
     CheckDlgButton(g_hwnd, IDC_ALLOW, g_settings.allow ? BST_CHECKED : BST_UNCHECKED);
