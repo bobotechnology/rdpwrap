@@ -7,31 +7,19 @@ outputs.
 
 ## Build
 
-MinGW-w64 (recommended for this port):
-
-```powershell
-cmake -S . -B build-mingw -G "MinGW Makefiles" `
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build-mingw
-```
-
-CMake automatically converts the existing Delphi/MSVC `resource.res` into a
-MinGW-compatible COFF object using `windres`.
-
-Or run from a Visual Studio Developer PowerShell:
+Build with Visual Studio 2022 and MSVC:
 
 ```powershell
 cmake -S . -B build -A Win32
 cmake --build build --config Release
 ```
 
-The MinGW executable is written to `build-mingw/RDPWInst.exe`; the Visual Studio
-executable is written to `build/Release/RDPWInst.exe`. The original Delphi
-target was Win32, but both x86 and x64 C++ builds are supported. MinGW runtime
-libraries are linked statically, so the resulting installer is standalone.
+The executable is written to `build/Release/RDPWInst.exe`. The original Delphi
+target was Win32, but both x86 and x64 C++ builds are supported. MSVC links the
+legacy Delphi `resource.res` directly, then a small MSVC build tool replaces
+the maintained payloads and embeds the `asInvoker` application manifest.
 
-Both MSVC and MinGW builds embed the same `asInvoker` application manifest,
-then every invocation relaunches itself through the `runas` verb when needed.
+Every invocation relaunches itself through the `runas` verb when needed.
 The relaunch uses `SEE_MASK_NO_CONSOLE`, but UAC broker behavior is not
 consistent enough to rely on console inheritance alone. The unelevated process
 therefore creates a named pipe, the elevated child writes its wide output to

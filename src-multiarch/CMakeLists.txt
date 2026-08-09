@@ -20,21 +20,9 @@ target_include_directories(rdpwrap PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/cpp_configparser/include")
 target_link_libraries(rdpwrap PRIVATE shlwapi version)
 
-# The original Visual Studio project keys its patch structures on MSVC's
-# architecture macros.  Define the equivalent for MinGW builds.
-if(MINGW)
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
-    target_compile_definitions(rdpwrap PRIVATE _M_X64)
-  else()
-    target_compile_definitions(rdpwrap PRIVATE _M_IX86)
-  endif()
-  target_compile_options(rdpwrap PRIVATE -Wall -Wextra -Wpedantic)
-  target_link_options(rdpwrap PRIVATE -static -static-libgcc -static-libstdc++)
-elseif(MSVC)
-  target_compile_options(rdpwrap PRIVATE /W4 /permissive- /utf-8)
-  set_property(TARGET rdpwrap PROPERTY
-    MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
+target_compile_options(rdpwrap PRIVATE /W4 /permissive- /utf-8)
+set_property(TARGET rdpwrap PROPERTY
+  MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 set_target_properties(rdpwrap PROPERTIES
   PREFIX ""

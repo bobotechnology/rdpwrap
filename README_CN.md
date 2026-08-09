@@ -3,7 +3,7 @@
 [English](README.md) | 简体中文
 
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/bobotechnology/rdpwrap)
-[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC%20%7C%20MinGW-success)](CMakeLists.txt)
+[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC-success)](CMakeLists.txt)
 [![Release](https://img.shields.io/github/v/release/bobotechnology/rdpwrap?include_prereleases)](https://github.com/bobotechnology/rdpwrap/releases)
 [![License](https://img.shields.io/github/license/bobotechnology/rdpwrap)](LICENSE)
 
@@ -35,7 +35,7 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 - 使用 C++17 重新实现原 Delphi `RDPWInst` 安装器。
 - 使用仓库根目录 CMake 统一构建 `RDPWInst.exe`、`RDP_CnC.exe` 和
   `rdpwrap.dll`。
-- 维护中的 x86/x64 构建路径同时支持 MSVC 和 MinGW-w64。
+- 维护中的 x86/x64 构建路径统一使用 MSVC。
 - Installer、Wrapper 与 CnC 统一使用 `dwProductVersionMS` 和
   `dwProductVersionLS` 匹配 `termsrv.dll` 的 INI 配置节。
 - UAC 提权时通过命名管道把输出转发回原 CMD，不再依赖不稳定的控制台继承，
@@ -62,39 +62,30 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 
 ## 构建
 
-请从仓库根目录构建。
-
-### MinGW-w64
-
-```powershell
-cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
-cmake --build build-mingw --parallel
-```
-
-### Visual Studio / MSVC
-
-在 Visual Studio Developer PowerShell 中运行：
+请使用 Visual Studio 2022 和 MSVC，从仓库根目录构建：
 
 ```powershell
 cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
 ```
 
-MSVC 构建的资源转换阶段仍会使用 GNU `windres`，因此需要安装 MinGW-w64，
-并确保可以通过 `PATH` 找到 `windres.exe`。
+MSVC 会直接链接旧 Delphi `resource.res`。随后由一个 MSVC 构建的小工具在最终
+安装器中替换当前维护的资源，不再需要 MinGW 或 `windres`。
 
 产物位于构建目录的 `bin` 子目录。原生 x64 构建会把刚构建的 x64
-`rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入
-`RDPWInst.exe`。
+`rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入 `RDPWInst.exe`。
 
-Win32 安装器可以运行在 x86 和 x64 Windows 上，因此发布包需要同时包含
-两种架构的 Wrapper。请先单独构建 x64 DLL，再配置 Win32 聚合安装器：
+Win32 安装器可以运行在 x86 和 x64 Windows 上，因此发布包需要同时包含两种架构的
+Wrapper。请先单独构建 x64 DLL，再配置 Win32 聚合安装器：
 
 ```powershell
 cmake -S . -B build-msvc32 -A Win32 `
   -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
 cmake --build build-msvc32 --config Release --parallel
 ```
+
+`Build MSVC release` GitHub Actions 工作流会在每次 push 和 pull request 时自动执行上述两次
+构建并上传可直接使用的产物。其 Win32 安装器同时包含本次构建的 `RDPW32` 和 `RDPW64`。
 
 ## 安装器命令
 

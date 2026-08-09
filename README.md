@@ -3,7 +3,7 @@
 English | [简体中文](README_CN.md)
 
 [![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/bobotechnology/rdpwrap)
-[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC%20%7C%20MinGW-success)](CMakeLists.txt)
+[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC-success)](CMakeLists.txt)
 [![Release](https://img.shields.io/github/v/release/bobotechnology/rdpwrap?include_prereleases)](https://github.com/bobotechnology/rdpwrap/releases)
 [![License](https://img.shields.io/github/license/bobotechnology/rdpwrap)](LICENSE)
 
@@ -39,7 +39,7 @@ to the original project.
 - Reimplemented the Delphi `RDPWInst` installer in C++17.
 - Added a unified repository-level CMake build for `RDPWInst.exe`,
   `RDP_CnC.exe`, and `rdpwrap.dll`.
-- Supports both MSVC and MinGW-w64 for the maintained x86/x64 build path.
+- Uses MSVC consistently for the maintained x86/x64 build path.
 - Uses `dwProductVersionMS` and `dwProductVersionLS` consistently when matching
   `termsrv.dll` against INI sections.
 - Preserves command output in the original CMD during UAC elevation by relaying
@@ -70,26 +70,16 @@ reached through RDP.
 
 ## Build
 
-Build from the repository root.
-
-### MinGW-w64
-
-```powershell
-cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
-cmake --build build-mingw --parallel
-```
-
-### Visual Studio / MSVC
-
-Run from a Visual Studio Developer PowerShell:
+Build from the repository root with Visual Studio 2022 and MSVC:
 
 ```powershell
 cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
 ```
 
-The MSVC resource-conversion step also uses GNU `windres`, so MinGW-w64 must be
-installed and `windres.exe` must be discoverable through `PATH`.
+The legacy Delphi `resource.res` is linked directly by MSVC. A small build tool
+then replaces the maintained payloads in the resulting installer; MinGW and
+`windres` are not required.
 
 Outputs are written below the build directory's `bin` folder. A native x64
 build embeds its freshly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
@@ -104,6 +94,10 @@ cmake -S . -B build-msvc32 -A Win32 `
   -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
 cmake --build build-msvc32 --config Release --parallel
 ```
+
+The `Build MSVC release` GitHub Actions workflow performs both builds and
+uploads a ready-to-use artifact on every push and pull request. Its Win32
+installer contains the freshly built `RDPW32` and `RDPW64` payloads.
 
 ## Installer commands
 
