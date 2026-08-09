@@ -115,13 +115,11 @@ private:
 
     std::string interpolate_basic(
         std::string_view section,
-        std::string_view option,
         std::string_view value,
         int depth) const;
 
     std::string interpolate_extended(
         std::string_view section,
-        std::string_view option,
         std::string_view value,
         int depth) const;
 

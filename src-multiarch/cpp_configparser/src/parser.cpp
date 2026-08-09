@@ -468,14 +468,13 @@ std::string Parser::interpolate(
             "Recursion limit exceeded in value substitution for option '" + std::string(option) + "' in section '" + std::string(section) + "'");
     }
     if (options_.interpolation == InterpolationMode::Basic) {
-        return interpolate_basic(section, option, value, depth);
+        return interpolate_basic(section, value, depth);
     }
-    return interpolate_extended(section, option, value, depth);
+    return interpolate_extended(section, value, depth);
 }
 
 std::string Parser::interpolate_basic(
     std::string_view section,
-    std::string_view option,
     std::string_view value,
     int depth) const {
     std::string out;
@@ -514,7 +513,6 @@ std::string Parser::interpolate_basic(
 
 std::string Parser::interpolate_extended(
     std::string_view section,
-    std::string_view option,
     std::string_view value,
     int depth) const {
     std::string out;
