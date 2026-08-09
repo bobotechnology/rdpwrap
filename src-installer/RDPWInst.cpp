@@ -1,5 +1,4 @@
 // Copyright 2017 Stas'M Corp.
-// Copyright 2025 bobo
 // Licensed under the Apache License, Version 2.0.
 
 #include <windows.h>
@@ -1000,8 +999,7 @@ bool validCommandArguments(const std::wstring& command, int argc, wchar_t* argv[
 
 void printBanner() {
     std::wcout << L"RDP Wrapper Library v1.8.7\n"
-                  L"Copyright (C) Stas'M Corp. 2017\n"
-                  L"Edited by bobo 2024\n\n";
+                  L"Copyright (C) Stas'M Corp. 2017\n\n";
 }
 
 bool isProcessElevated() {

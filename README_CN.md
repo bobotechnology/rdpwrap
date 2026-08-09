@@ -1,4 +1,4 @@
-# RDP Wrapper 二次开发增强版 by bobo
+# RDP Wrapper 二次开发增强版
 
 [English](README.md) | 简体中文
 

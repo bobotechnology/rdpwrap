@@ -1,4 +1,4 @@
-# RDP Wrapper Enhanced Edition by bobo
+# RDP Wrapper Enhanced Edition
 
 English | [简体中文](README_CN.md)
 
