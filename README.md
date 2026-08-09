@@ -1,198 +1,179 @@
-# Third Party RDP Wrapper Library by bobo
+# RDP Wrapper Enhanced Edition by bobo
 
-English | [简体中文](https://github.com/bobotechnology/rdpwrap/blob/master/README_CN.md)
+English | [简体中文](README_CN.md)
 
+[![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/bobotechnology/rdpwrap)
+[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC%20%7C%20MinGW-success)](CMakeLists.txt)
+[![Release](https://img.shields.io/github/v/release/bobotechnology/rdpwrap?include_prereleases)](https://github.com/bobotechnology/rdpwrap/releases)
+[![License](https://img.shields.io/github/license/bobotechnology/rdpwrap)](LICENSE)
 
-[![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
-![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010,%2011-brightgreen.svg)
-[![Release](https://img.shields.io/github/release/stascorp/rdpwrap.svg)](https://github.com/stascorp/rdpwrap/releases)
-![License](https://img.shields.io/github/license/stascorp/rdpwrap.svg)
-![Downloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/latest/total.svg)
-![TotalDownloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/total.svg)
+> This is a community-maintained, secondary-development edition. It is not an
+> official release of the original RDP Wrapper project and is not affiliated
+> with Microsoft.
 
-#### All thanks for RDP Wrapper Library to: [stascorp](https://github.com/stascorp/rdpwrap)
+This edition keeps the RDP Wrapper architecture while modernizing its installer,
+configuration application, build system, update process, and runtime checks.
+`termsrv.dll` is loaded through the wrapper and is not directly replaced or
+binary-patched on disk.
 
-The goal of this project is to enable Remote Desktop Host support and concurrent RDP sessions on reduced functionality systems for home usage.
+## Project lineage and credits
 
-RDP Wrapper works as a layer between Service Control Manager and Terminal Services, so the original termsrv.dll file remains untouched. Also this method is very strong against Windows Update.
+This repository is derived from the original
+[stascorp/rdpwrap](https://github.com/stascorp/rdpwrap) project. Thanks to
+Stas'M Corp., binarymaster, kost, the original contributors, and the wider RDP
+Wrapper community. The synchronized compatibility configuration is based on
+[sebaxakerhtc/rdpwrap.ini](https://github.com/sebaxakerhtc/rdpwrap.ini).
 
-[pVistaST]:  https://img.picui.cn/free/2025/01/26/679614043df9f.jpg
-[pVistaHB]:  https://img.picui.cn/free/2025/01/26/679616b855732.jpg
-[pWin7ST]:   https://img.picui.cn/free/2025/01/26/679617139cd71.jpg
-[pWin7HB]:   https://img.picui.cn/free/2025/01/26/6796176a330a9.jpg
-[pWin8DP]:   https://img.picui.cn/free/2025/01/26/679617afdabd0.jpg
-[pWin8CP]:   https://img.picui.cn/free/2025/01/26/679618a71ca3d.jpg
-[pWin8RP]:   https://img.picui.cn/free/2025/01/26/67961903211f8.jpg
-[pWin8]:     https://img.picui.cn/free/2025/01/26/6796195b1ae76.jpg
-[pWin81P]:   https://img.picui.cn/free/2025/01/26/679619c1dd3f0.jpg
-[pWin81]:    https://img.picui.cn/free/2025/01/26/67961a30061fc.jpg
-[pWin10TP]:  https://img.picui.cn/free/2025/01/26/67961a9ce2f51.jpg
-[pWin10PTP]: https://img.picui.cn/free/2025/01/26/67961ac842687.jpg
-[pWin10]:    https://img.picui.cn/free/2025/01/26/67961afba6e6a.jpg
+Development, releases, issue tracking, and support for **this edition** belong
+to this repository:
 
-[fVistaST]:  https://img.picui.cn/free/2025/01/26/67961bc9d391d.png
-[fVistaHB]:  https://img.picui.cn/free/2025/01/26/67961bf126ee5.png
-[fWin7ST]:   https://img.picui.cn/free/2025/01/26/67961c5e4db3c.png
-[fWin7HB]:   https://img.picui.cn/free/2025/01/26/67961c93bfae8.png
-[fWin8DP]:   https://img.picui.cn/free/2025/01/26/67961d550a2ea.png
-[fWin8CP]:   https://img.picui.cn/free/2025/01/26/67961d72a0869.png
-[fWin8RP]:   https://img.picui.cn/free/2025/01/26/67961d92c073b.png
-[fWin8]:     https://img.picui.cn/free/2025/01/26/6796245c315e1.png
-[fWin81P]:   https://img.picui.cn/free/2025/01/26/6796251bc2b04.png
-[fWin81]:    https://img.picui.cn/free/2025/01/26/6796253d55300.png
-[fWin10TP]:  https://img.picui.cn/free/2025/01/26/6796257c0b4b5.png
-[fWin10PTP]: https://img.picui.cn/free/2025/01/26/679627c823559.png
-[fWin10]:    https://img.picui.cn/free/2025/01/26/67962926acd4f.png
+- Repository: <https://github.com/bobotechnology/rdpwrap>
+- Releases: <https://github.com/bobotechnology/rdpwrap/releases>
+- Issues: <https://github.com/bobotechnology/rdpwrap/issues>
 
-| NT Version    | Screenshots |
-| ------------- | ----------- |
-| Windows Vista | [![Windows Vista Starter][pVistaST]][fVistaST] [![Windows Vista Home Basic][pVistaHB]][fVistaHB] |
-| Windows 7     | [![Windows 7 Starter][pWin7ST]][fWin7ST] [![Windows 7 Home Basic][pWin7HB]][fWin7HB] |
-| Windows 8     | [![Windows 8 Developer Preview][pWin8DP]][fWin8DP] [![Windows 8 Consumer Preview][pWin8CP]][fWin8CP] [![Windows 8 Release Preview][pWin8RP]][fWin8RP] [![Windows 8][pWin8]][fWin8] |
-| Windows 8.1   | [![Windows 8.1 Preview][pWin81P]][fWin81P] [![Windows 8.1][pWin81]][fWin81] |
-| Windows 10    | [![Windows 10 Technical Preview][pWin10TP]][fWin10TP] [![Windows 10 Pro Technical Preview][pWin10PTP]][fWin10PTP] [![Windows 10][pWin10]][fWin10] |
----
+Please do not report edition-specific installer, build, or `RDP_CnC` problems
+to the original project.
 
+## Changes in this edition
 
-This solution was inspired by Windows Product Policy Editor, big thanks to **kost** :)
+- Reimplemented the Delphi `RDPWInst` installer in C++17.
+- Added a unified repository-level CMake build for `RDPWInst.exe`,
+  `RDP_CnC.exe`, and `rdpwrap.dll`.
+- Supports both MSVC and MinGW-w64 for the maintained x86/x64 build path.
+- Uses `dwProductVersionMS` and `dwProductVersionLS` consistently when matching
+  `termsrv.dll` against INI sections.
+- Preserves command output in the original CMD during UAC elevation by relaying
+  output over a named pipe; no extra persistent console window is required.
+- Embeds the maintained `res/rdpwrap.ini` and current build outputs into the
+  installer instead of silently shipping stale resources.
+- Adds validated HTTPS INI updates, size/time limits, atomic replacement, and
+  more reliable service/process error handling.
+- Provides the native `RDP_CnC` status and configuration application.
+- Uses installer-owned firewall rules instead of modifying Windows' generic
+  `Remote Desktop` rules.
+- Hardens the scheduled INI synchronization workflow and removes forced pushes.
 
-— binarymaster
+## Requirements and scope
 
-### Attention:
-It's recommended to have original termsrv.dll file with the RDP Wrapper installation. If you have modified it before with other patchers, it may become unstable and crash in any moment.
+- Administrator permission is required for installation and system changes.
+- Windows 10/11 are the primary supported and tested targets for this edition.
+- Actual `termsrv.dll` support depends on whether the active `rdpwrap.ini`
+  contains the exact Windows product-version section.
+- The maintained root CMake build currently targets x86/x64. ARM/ARM64 files in
+  the repository are legacy/experimental paths and are not part of the verified
+  release pipeline.
 
-### Information:
-- Source code is available, so you can build it on your own
-- RDP Wrapper does not patch termsrv.dll, it loads termsrv with different parameters
-- RDPWInst and RDPChecker can be redistributed without development folder and batch files
-- RDPWInst can be used for unattended installation / deployment
-- Windows 2000, XP and Server 2003 will not be supported
+Before installation, restore an original Microsoft `termsrv.dll` if another
+patcher modified it. Create a restore point or other recovery path before
+changing remote-access configuration, especially on a machine that can only be
+reached through RDP.
 
-### Key features:
-- RDP host server on any Windows edition beginning from Vista
-- Console and remote sessions at the same time
-- Using the same user simultaneously for local and remote logon (see configuration app)
-- Up to [15 concurrent sessions](https://github.com/stascorp/rdpwrap/issues/192) (the actual limitation depends on your hardware and OS version)
-- Console and RDP session shadowing (using [Task Manager in Windows 7](http://cdn.freshdesk.com/data/helpdesk/attachments/production/1009641577/original/remote_control.png?1413476051) and lower, and [Remote Desktop Connection in Windows 8](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) and higher)
-- Full [multi-monitor support](https://github.com/stascorp/rdpwrap/issues/163) for RDP host
-- ...and if you find a new feature not listed here, [tell us](https://github.com/stascorp/rdpwrap/issues/new) ;)
+## Build
 
-### Porting to other platforms:
-- **ARM** for Windows RT (see links below)
-- **IA-64** for Itanium-based Windows Server? *Well, I have no idea* :)
+Build from the repository root.
 
-### Building the binaries:
-The repository-level CMake project builds the C++17 installer, configuration
-application, and the wrapper DLL together:
+### MinGW-w64
 
 ```powershell
-# MinGW-w64
 cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-mingw --parallel
+```
 
-# Visual Studio (choose Win32 or x64 as required)
-cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64
+### Visual Studio / MSVC
+
+Run from a Visual Studio Developer PowerShell:
+
+```powershell
+cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
 ```
 
-The binaries are written below the build directory's `bin` folder. Native x64
-repository builds embed the newly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
-the maintained `res/rdpwrap.ini` into `RDPWInst.exe`. For a Win32 installer
-that must also deploy to x64 Windows, pass a DLL from a separate x64 build as
-`-DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll` when configuring.
+The MSVC resource-conversion step also uses GNU `windres`, so MinGW-w64 must be
+installed and `windres.exe` must be discoverable through `PATH`.
 
-[andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
-[mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
-[xda-dev]:       http://forum.xda-developers.com/showthread.php?t=2093525&page=3
-[yt-offsets]:    http://www.youtube.com/watch?v=FiD86tmRBtk
+Outputs are written below the build directory's `bin` folder. A native x64
+build embeds its freshly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
+`res/rdpwrap.ini` into `RDPWInst.exe`.
 
-### Links:
-- Official GitHub repository:
-<br>https://github.com/stascorp/rdpwrap/
-- Official Telegram chat:
-<br>https://t.me/rdpwrap
-- Active discussion in the comments here:
-<br>[Enable remote desktop on Windows 8 core / basic - Andrew Block .net][andrewblock]
-- MDL Projects and Applications thread here:
-<br>[RDP Wrapper Library (works with Windows 8.1 Basic)][mydigitallife]
-- Some ideas about porting to ARM for Windows RT (post #23):
-<br>[\[Q\] Mod Windows RT to enable Remote Desktop][xda-dev]
-- Adding «Remote Desktop Users» group:
-<br>http://superuser.com/questions/680572/
+A Win32 installer can run on both x86 and x64 Windows and therefore needs both
+wrapper architectures. Build the x64 DLL separately and provide it when
+configuring the Win32 aggregate installer:
 
-#### Tutorial videos:
-- [How to find offsets for new termsrv.dll versions][yt-offsets]
+```powershell
+cmake -S . -B build-msvc32 -A Win32 `
+  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
+cmake --build build-msvc32 --config Release --parallel
+```
 
-### Files in release package:
+## Installer commands
 
-| File name | Description |
-| --------- | ----------- |
-| `RDPWInst.exe`  | RDP Wrapper Library installer/uninstaller |
-| `RDP_CnC.exe`   | RDP Wrapper status and configuration application |
-| `install.bat`   | Quick install batch file |
-| `uninstall.bat` | Quick uninstall batch file |
-| `update.bat`    | Quick update batch file |
+```text
+RDPWInst.exe -l
+RDPWInst.exe -i [-s] [-o]
+RDPWInst.exe -u [-k]
+RDPWInst.exe -w [HTTPS_URL]
+RDPWInst.exe -r
+```
 
-### Frequently Asked Questions
+| Option | Description |
+| --- | --- |
+| `-l` | Display the bundled license. |
+| `-i` | Install using a validated adjacent or embedded INI. |
+| `-i -o` | Download and validate the current online INI before installation. |
+| `-i -s` | Install the wrapper DLL into System32; not recommended for normal deployments. |
+| `-u` | Uninstall the wrapper and its managed files. |
+| `-u -k` | Uninstall while retaining Terminal Services/firewall configuration. |
+| `-w` | Update the installed INI from the default HTTPS source. |
+| `-w URL` | Update from a specified HTTPS source. |
+| `-r` | Restart Terminal Services. |
 
-> Where can I download the installer or binaries?
+Every command uses the same code-controlled UAC path. You can launch it from an
+ordinary CMD; accept the UAC prompt and output will continue in that CMD.
 
-In the [GitHub Releases](https://github.com/stascorp/rdpwrap/releases) section.
+## Quick use
 
-> Is it legal to use this application?
+Release packages normally contain:
 
-There is no definitive answer, see [this discussion](https://github.com/stascorp/rdpwrap/issues/26).
+| File | Purpose |
+| --- | --- |
+| `RDPWInst.exe` | Installer, uninstaller, updater, and service control tool. |
+| `RDP_CnC.exe` | Wrapper status and RDP configuration application. |
+| `install.bat` | Online installation shortcut. |
+| `update.bat` | INI update shortcut. |
+| `uninstall.bat` | Safe uninstall shortcut. |
 
-> The installer tries to access the Internet, is it normal behaviour?
+From the extracted release directory:
 
-Yes, it works in online mode by default. You may disable it by removing `-o` flag in the `install.bat` file.
+```bat
+install.bat
+update.bat
+uninstall.bat
+```
 
-> What is online install mode?
+The scripts propagate failures through their exit codes. The uninstaller only
+deletes known project files and keeps a non-empty installation directory rather
+than recursively deleting unknown user files.
 
-Online install mode introduced in version 1.6.1. When you installing RDP Wrapper first time using this mode, it will download [latest INI file](https://github.com/stascorp/rdpwrap/blob/master/res/rdpwrap.ini) from GitHub. See [this discussion](https://github.com/stascorp/rdpwrap/issues/132).
+## Updates and diagnostics
 
-> What is INI file and why we need it?
+- The default online mode retrieves a compatibility INI, validates its
+  structure, and writes it atomically.
+- `RDP_CnC.exe` displays the installed wrapper state, TermService state,
+  listener state, product version, and support status.
+- If the status is `not supported`, run `update.bat` first. If the exact product
+  version is still absent, open an issue in
+  [this repository](https://github.com/bobotechnology/rdpwrap/issues) and include
+  the complete `termsrv.dll` product version, Windows architecture, and relevant
+  installer output.
 
-INI file was introduced in version 1.5. It stores system configuration for RDP Wrapper — general wrapping settings, binary patch codes, and per build specific data. When new `termsrv.dll` build comes out, developer adds support for it by updating INI file in repository.
+## Important notes
 
-> Config Tool shows `[not supported]` and RDP doesn't work. What can I do?
-
-Make sure you're connected to the Internet and run `update.bat`.
-
-> Update doesn't help, it still shows `[not supported]`.
-
-Visit [issues](https://github.com/stascorp/rdpwrap/issues) section, and check whether your `termsrv.dll` build is listed here. If you can't find such issue, create a new — specify your build version for adding to support.
-
-> Why `RDPCheck` doesn't allow to change resolution and other settings?
-
-`RDPCheck` is a very simple application and only for testing purposes. You need to use Microsoft Remote Desktop Client (`mstsc.exe`) if you want to customize the settings. You can use `127.0.0.1` or `127.0.0.2` address for loopback connection.
-
-### Known issues:
-- Beginning with Windows 8 **on tablet PCs** inactive sessions will be logged out by system - [more info](https://github.com/stascorp/rdpwrap/issues/37)
-- Beginning with Windows 10 you can accidentally lock yourself from PC - [more info](https://github.com/stascorp/rdpwrap/issues/50)
-- Beginning with the Creators Update for Windows 10 Home, RDP Wrapper will no longer work, claiming that the listener is `[not listening]` because of `rfxvmt.dll` is missing - [more info](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111), [download links](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
-- Terminal Service does not start after installing some updates or "Access Denied" issue - [#215](https://github.com/stascorp/rdpwrap/issues/215), [#101](https://github.com/stascorp/rdpwrap/issues/101)
-- RDP Wrapper does not work with RemoteFX enabled hosts - [#127](https://github.com/stascorp/rdpwrap/issues/127), [#208](https://github.com/stascorp/rdpwrap/issues/208), [#216](https://github.com/stascorp/rdpwrap/issues/216)
-- RDP works, but termsrv.dll crashes on logon attempt - Windows Vista Starter RTM x86 (termsrv.dll `6.0.6000.16386`)
-- If Terminal Services hangs at startup, try to add **`rdpwrap.dll`** to antivirus exclusions. Also try to isolate RDP Wrapper from other shared services by the command:
-<br>`sc config TermService type= own`
-- RDP Wrapper can be removed by AVG Free Antivirus and [Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191) - first make sure you downloaded [official release](https://github.com/stascorp/rdpwrap/releases) from GitHub, then add it to exclusions.
-
----
-
-### Change log:
-
-### How to use
-Installation instructions:
-- Download latest release binaries and unpack files
-- Right-click on **`install.bat`** and select Run as Administrator
-- See command output for details
-
-To update INI file:
-- Right-click on **`update.bat`** and select Run as Administrator
-- See command output for details
-
-To uninstall:
-- Go to the directory where you extracted the files
-- Right-click on **`uninstall.bat`** and select Run as Administrator
-- See command output for details
+- This software changes Windows service, registry, and firewall configuration.
+- Antivirus products may flag service wrappers or in-memory hooking behavior.
+  Review and build the source yourself if supply-chain assurance is required.
+- Windows updates can introduce a new `termsrv.dll` product version before a
+  matching INI section is available.
+- Enabling concurrent sessions may be restricted by Windows licensing terms or
+  local law. Users are responsible for verifying their authorization and
+  compliance.
+- No warranty is provided. See [LICENSE](LICENSE).

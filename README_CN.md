@@ -1,197 +1,163 @@
-# Third Party RDP Wrapper Library by bobo
+# RDP Wrapper 二次开发增强版 by bobo
 
-[English](https://github.com/bobotechnology/rdpwrap/blob/master/README.md) | 简体中文
+[English](README.md) | 简体中文
 
-[![Telegram](https://img.shields.io/badge/chat-Telegram-blue.svg)](https://t.me/rdpwrap)
-![Environment](https://img.shields.io/badge/Windows-Vista,%207,%208,%2010,%2011-brightgreen.svg)
-[![Release](https://img.shields.io/github/release/stascorp/rdpwrap.svg)](https://github.com/stascorp/rdpwrap/releases)
-![License](https://img.shields.io/github/license/stascorp/rdpwrap.svg)
-![Downloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/latest/total.svg)
-![TotalDownloads](https://img.shields.io/github/downloads/stascorp/rdpwrap/total.svg)
+[![Windows](https://img.shields.io/badge/platform-Windows-0078D6?logo=windows)](https://github.com/bobotechnology/rdpwrap)
+[![Build](https://img.shields.io/badge/build-CMake%20%7C%20MSVC%20%7C%20MinGW-success)](CMakeLists.txt)
+[![Release](https://img.shields.io/github/v/release/bobotechnology/rdpwrap?include_prereleases)](https://github.com/bobotechnology/rdpwrap/releases)
+[![License](https://img.shields.io/github/license/bobotechnology/rdpwrap)](LICENSE)
 
-#### 所有感谢都归功于 RDP Wrapper 库的：[stascorp](https://github.com/stascorp/rdpwrap)
+> 本仓库是由社区维护的二次开发增强版，不是原始 RDP Wrapper 项目的官方
+> 发布，也不隶属于 Microsoft。
 
-这个项目的目标是为家庭用户在功能受限的系统上启用远程桌面主机支持和并发 RDP 会话。
+本版本保留 RDP Wrapper 的基本架构，并重新整理了安装器、配置程序、构建
+系统、在线更新及运行时检查。Wrapper 负责加载 `termsrv.dll`，不会在磁盘上
+直接替换或二进制修改 Microsoft 原始 DLL。
 
-RDP Wrapper 作为服务控制管理器和终端服务之间的一层，因此原始的 termsrv.dll 文件保持不变。此外，这种方法，即使Windows更新也不受到影响。
+## 项目来源与致谢
 
-[pVistaST]:  https://img.picui.cn/free/2025/01/26/679614043df9f.jpg
-[pVistaHB]:  https://img.picui.cn/free/2025/01/26/679616b855732.jpg
-[pWin7ST]:   https://img.picui.cn/free/2025/01/26/679617139cd71.jpg
-[pWin7HB]:   https://img.picui.cn/free/2025/01/26/6796176a330a9.jpg
-[pWin8DP]:   https://img.picui.cn/free/2025/01/26/679617afdabd0.jpg
-[pWin8CP]:   https://img.picui.cn/free/2025/01/26/679618a71ca3d.jpg
-[pWin8RP]:   https://img.picui.cn/free/2025/01/26/67961903211f8.jpg
-[pWin8]:     https://img.picui.cn/free/2025/01/26/6796195b1ae76.jpg
-[pWin81P]:   https://img.picui.cn/free/2025/01/26/679619c1dd3f0.jpg
-[pWin81]:    https://img.picui.cn/free/2025/01/26/67961a30061fc.jpg
-[pWin10TP]:  https://img.picui.cn/free/2025/01/26/67961a9ce2f51.jpg
-[pWin10PTP]: https://img.picui.cn/free/2025/01/26/67961ac842687.jpg
-[pWin10]:    https://img.picui.cn/free/2025/01/26/67961afba6e6a.jpg
+本仓库基于原始项目
+[stascorp/rdpwrap](https://github.com/stascorp/rdpwrap) 二次开发。感谢
+Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
+兼容性配置同步自
+[sebaxakerhtc/rdpwrap.ini](https://github.com/sebaxakerhtc/rdpwrap.ini)。
 
-[fVistaST]:  https://img.picui.cn/free/2025/01/26/67961bc9d391d.png
-[fVistaHB]:  https://img.picui.cn/free/2025/01/26/67961bf126ee5.png
-[fWin7ST]:   https://img.picui.cn/free/2025/01/26/67961c5e4db3c.png
-[fWin7HB]:   https://img.picui.cn/free/2025/01/26/67961c93bfae8.png
-[fWin8DP]:   https://img.picui.cn/free/2025/01/26/67961d550a2ea.png
-[fWin8CP]:   https://img.picui.cn/free/2025/01/26/67961d72a0869.png
-[fWin8RP]:   https://img.picui.cn/free/2025/01/26/67961d92c073b.png
-[fWin8]:     https://img.picui.cn/free/2025/01/26/6796245c315e1.png
-[fWin81P]:   https://img.picui.cn/free/2025/01/26/6796251bc2b04.png
-[fWin81]:    https://img.picui.cn/free/2025/01/26/6796253d55300.png
-[fWin10TP]:  https://img.picui.cn/free/2025/01/26/6796257c0b4b5.png
-[fWin10PTP]: https://img.picui.cn/free/2025/01/26/679627c823559.png
-[fWin10]:    https://img.picui.cn/free/2025/01/26/67962926acd4f.png
+**本版本**的开发、发布、问题反馈和支持均以当前仓库为准：
 
-| NT 版本    | 截图 |
-| ------------- | ----------- |
-| Windows Vista | [![Windows Vista Starter][pVistaST]][fVistaST] [![Windows Vista Home Basic][pVistaHB]][fVistaHB] |
-| Windows 7     | [![Windows 7 Starter][pWin7ST]][fWin7ST] [![Windows 7 Home Basic][pWin7HB]][fWin7HB] |
-| Windows 8     | [![Windows 8 Developer Preview][pWin8DP]][fWin8DP] [![Windows 8 Consumer Preview][pWin8CP]][fWin8CP] [![Windows 8 Release Preview][pWin8RP]][fWin8RP] [![Windows 8][pWin8]][fWin8] |
-| Windows 8.1   | [![Windows 8.1 Preview][pWin81P]][fWin81P] [![Windows 8.1][pWin81]][fWin81] |
-| Windows 10    | [![Windows 10 Technical Preview][pWin10TP]][fWin10TP] [![Windows 10 Pro Technical Preview][pWin10PTP]][fWin10PTP] [![Windows 10][pWin10]][fWin10] |
----
+- 项目仓库：<https://github.com/bobotechnology/rdpwrap>
+- 版本下载：<https://github.com/bobotechnology/rdpwrap/releases>
+- 问题反馈：<https://github.com/bobotechnology/rdpwrap/issues>
 
-这个解决方案的灵感来源于 Windows 产品策略编辑器，非常感谢 **kost** :)
+本版本的安装器、构建系统或 `RDP_CnC` 问题请勿提交到原始项目。
 
-— binarymaster
+## 本版本的主要改动
 
-### 注意：
-建议在安装 RDP Wrapper 时保留原始的 termsrv.dll 文件。如果您之前使用其他补丁程序修改过它，它可能会变得不稳定并随时崩溃。
+- 使用 C++17 重新实现原 Delphi `RDPWInst` 安装器。
+- 使用仓库根目录 CMake 统一构建 `RDPWInst.exe`、`RDP_CnC.exe` 和
+  `rdpwrap.dll`。
+- 维护中的 x86/x64 构建路径同时支持 MSVC 和 MinGW-w64。
+- Installer、Wrapper 与 CnC 统一使用 `dwProductVersionMS` 和
+  `dwProductVersionLS` 匹配 `termsrv.dll` 的 INI 配置节。
+- UAC 提权时通过命名管道把输出转发回原 CMD，不再依赖不稳定的控制台继承，
+  也不会留下额外的常驻黑窗。
+- 构建安装器时嵌入维护中的 `res/rdpwrap.ini` 和本次构建产物，避免继续携带
+  陈旧资源。
+- 在线更新增加 HTTPS、文件大小、结构、超时和原子替换检查。
+- 提供原生 `RDP_CnC` 状态检查与配置程序。
+- 使用项目专属防火墙规则，不再修改 Windows 通用的 `Remote Desktop` 规则。
+- 加固 INI 自动同步工作流，并取消强制推送。
 
-### 信息：
-- 源代码是可用的，因此您可以自行构建
-- RDP Wrapper 不会直接修改 termsrv.dll，而是使用不同的参数来加载它，以确保原始文件保持不变。
-- RDPWInst 和 RDPChecker 可以在没有开发文件夹和批处理文件的情况下重新分发
-- RDPWInst 可用于无人值守安装/部署
-- 不支持 Windows 2000、XP 和 Server 2003
+## 系统要求与支持范围
 
-### 主要特性：
-- 在从 Vista 开始的任何 Windows 版本上作为 RDP 主机服务器
-- 控制台会话和 RDP 会话可以同时进行
-- 同时使用同一用户进行本地和远程登录（请参见配置应用程序）
-- 支持最多 [15 个并发会话](https://github.com/stascorp/rdpwrap/issues/192)（实际限制取决于您的硬件和操作系统版本）
-- 控制台和 RDP 会话 影子模式（使用 [Windows 7 中的任务管理器](https://img.picui.cn/free/2025/01/22/679110d27de7b.png) 及更低版本，以及 [Windows 8 中的远程桌面连接](http://woshub.com/rds-shadow-how-to-connect-to-a-user-session-in-windows-server-2012-r2/) 及更高版本）
-- 完整的 [多显示器支持](https://github.com/stascorp/rdpwrap/issues/163) 适用于 RDP 主机
-- ...如果您发现这里未列出的新功能，请 [告诉我们](https://github.com/stascorp/rdpwrap/issues/new) ;)
+- 安装和修改系统配置需要管理员权限。
+- 本二次开发版本主要面向并验证 Windows 10/11。
+- 是否支持当前系统，取决于活动 `rdpwrap.ini` 中是否存在与
+  `termsrv.dll` **产品版本**完全一致的配置节。
+- 根 CMake 当前维护和验证 x86/x64。仓库中的 ARM/ARM64 文件属于旧有或
+  实验路径，尚未纳入当前验证过的发布流水线。
 
+如果此前使用其他工具修改过 `termsrv.dll`，请先恢复 Microsoft 原始文件。
+修改远程访问配置前建议创建还原点或其他恢复方式；如果机器只能通过 RDP
+访问，更应提前准备本地或带外恢复通道。
 
-### 移植到其他平台：
-- **ARM** 用于 Windows RT（请参见下面的链接）
-- **IA-64** 用于基于 Itanium 的 Windows Server？*嗯，我不知道* :)
+## 构建
 
-### 构建二进制文件：
-仓库根目录的 CMake 工程会统一构建 C++17 安装器、配置程序和 Wrapper DLL：
+请从仓库根目录构建。
+
+### MinGW-w64
 
 ```powershell
-# MinGW-w64
 cmake -S . -B build-mingw -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build-mingw --parallel
+```
 
-# Visual Studio（按需选择 Win32 或 x64）
-cmake -S . -B build-msvc -G "Visual Studio 17 2022" -A x64
+### Visual Studio / MSVC
+
+在 Visual Studio Developer PowerShell 中运行：
+
+```powershell
+cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
 ```
 
-产物位于构建目录的 `bin` 子目录。仓库级原生 x64 构建会把刚构建的 x64
-`rdpwrap.dll`、`RDP_CnC.exe` 以及维护中的 `res/rdpwrap.ini` 嵌入
-`RDPWInst.exe`。若要生成能同时部署到 x64 Windows 的 Win32 安装器，请先
-单独构建 x64 DLL，并在配置 Win32 构建时传入
-`-DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll`。
+MSVC 构建的资源转换阶段仍会使用 GNU `windres`，因此需要安装 MinGW-w64，
+并确保可以通过 `PATH` 找到 `windres.exe`。
 
-[andrewblock]:   http://web.archive.org/web/20150810054558/http://andrewblock.net/enable-remote-desktop-on-windows-8-core/
-[mydigitallife]: http://forums.mydigitallife.info/threads/55935-RDP-Wrapper-Library-(works-with-Windows-8-1-Basic)
-[xda-dev]:       http://forum.xda-developers.com/showthread.php?t=2093525&page=3
-[yt-offsets]:    http://www.youtube.com/watch?v=FiD86tmRBtk
+产物位于构建目录的 `bin` 子目录。原生 x64 构建会把刚构建的 x64
+`rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入
+`RDPWInst.exe`。
 
-### 链接：
-- 官方 GitHub 仓库：
-<br>https://github.com/stascorp/rdpwrap/
-- 官方 Telegram 聊天：
-<br>https://t.me/rdpwrap
-- 此处的活跃讨论：
-<br>[在 Windows 8 核心/基本版上启用远程桌面 - Andrew Block .net][andrewblock]
-- 此处的 MDL 项目和应用线程：
-<br>[RDP Wrapper 库（适用于 Windows 8.1 基本版）][mydigitallife]
-- 关于在 Windows RT 上移植到 ARM 的一些想法（帖子 #23）：
-<br>[\[Q\] 修改 Windows RT 以启用远程桌面][xda-dev]
-- 添加 «远程桌面用户» 组：
-<br>http://superuser.com/questions/680572/
+Win32 安装器可以运行在 x86 和 x64 Windows 上，因此发布包需要同时包含
+两种架构的 Wrapper。请先单独构建 x64 DLL，再配置 Win32 聚合安装器：
 
-#### 教程视频：
-- [如何找到新版本 termsrv.dll 的偏移量][yt-offsets]
+```powershell
+cmake -S . -B build-msvc32 -A Win32 `
+  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
+cmake --build build-msvc32 --config Release --parallel
+```
 
-### 发布包中的文件：
+## 安装器命令
 
-| 文件名 | 描述 |
-| --------- | ----------- |
-| `RDPWInst.exe`  | RDP Wrapper 库安装程序/卸载程序 |
-| `RDP_CnC.exe`   | RDP Wrapper 状态与配置程序 |
-| `install.bat`   | 快速安装批处理文件 |
-| `uninstall.bat` | 快速卸载批处理文件 |
-| `update.bat`    | 快速更新批处理文件 |
+```text
+RDPWInst.exe -l
+RDPWInst.exe -i [-s] [-o]
+RDPWInst.exe -u [-k]
+RDPWInst.exe -w [HTTPS_URL]
+RDPWInst.exe -r
+```
 
-### 常见问题解答
+| 参数 | 说明 |
+| --- | --- |
+| `-l` | 显示内置许可证。 |
+| `-i` | 使用通过校验的同目录或内置 INI 安装。 |
+| `-i -o` | 安装前下载并校验当前在线 INI。 |
+| `-i -s` | 把 Wrapper DLL 安装到 System32；普通部署不建议使用。 |
+| `-u` | 卸载 Wrapper 及项目管理的文件。 |
+| `-u -k` | 卸载但保留终端服务和防火墙配置。 |
+| `-w` | 从默认 HTTPS 地址更新已安装的 INI。 |
+| `-w URL` | 从指定 HTTPS 地址更新 INI。 |
+| `-r` | 重启终端服务。 |
 
-> 我在哪里可以下载安装程序或二进制文件？
+所有命令使用同一套代码提权流程。可以直接在普通 CMD 中运行；同意 UAC
+提示后，输出会继续显示在原 CMD 中。
 
-在 [GitHub Releases](https://github.com/stascorp/rdpwrap/releases) 部分。
+## 快速使用
 
-> 使用这个应用程序是否合法？
+发布包通常包含：
 
-没有明确的答案，请参见 [这个讨论](https://github.com/stascorp/rdpwrap/issues/26)。
+| 文件 | 用途 |
+| --- | --- |
+| `RDPWInst.exe` | 安装、卸载、更新和服务控制工具。 |
+| `RDP_CnC.exe` | Wrapper 状态及 RDP 配置程序。 |
+| `install.bat` | 在线安装快捷脚本。 |
+| `update.bat` | INI 更新快捷脚本。 |
+| `uninstall.bat` | 安全卸载快捷脚本。 |
 
-> 安装程序尝试访问互联网，这正常吗？
+在解压后的发布目录中运行：
 
-是的，默认情况下它在在线模式下工作。您可以通过在 `install.bat` 文件中删除 `-o` 标志来禁用它。
+```bat
+install.bat
+update.bat
+uninstall.bat
+```
 
-> 什么是在线安装模式？
+脚本会正确返回失败状态。卸载逻辑只删除项目已知文件；如果安装目录中存在
+未知文件，会保留该目录，不再递归删除用户文件。
 
-在线安装模式在版本 1.6.1 中引入。当您第一次使用此模式安装 RDP Wrapper 时，它将从 GitHub 下载 [最新的 INI 文件](https://github.com/stascorp/rdpwrap/blob/master/res/rdpwrap.ini)。请参见 [这个讨论](https://github.com/stascorp/rdpwrap/issues/132)。
+## 更新与问题诊断
 
-> 什么是 INI 文件，我们为什么需要它？
+- 默认在线模式会下载兼容性 INI，完成结构校验后再原子替换。
+- `RDP_CnC.exe` 会显示 Wrapper、TermService、监听器、产品版本和支持状态。
+- 如果显示 `not supported`，请先运行 `update.bat`。如果仍然没有对应的产品
+  版本，请在[当前仓库 Issues](https://github.com/bobotechnology/rdpwrap/issues)
+  反馈，并提供完整 `termsrv.dll` 产品版本、Windows 架构和相关安装器输出。
 
-INI 文件在版本 1.5 中引入。它存储 RDP Wrapper 的系统配置——一般包装设置、二进制补丁代码和每个构建特定的数据。当新的 `termsrv.dll` 构建发布时，开发者通过更新存储库中的 INI 文件来添加对其的支持。
+## 重要说明
 
-> 配置工具显示 `[not supported]`，RDP 无法工作。我该怎么办？
-
-确保您已连接到互联网并运行 `update.bat`。
-
-> 更新没有帮助，仍然显示 `[not supported]`。
-
-访问 [issues](https://github.com/stascorp/rdpwrap/issues) 部分，检查您的 `termsrv.dll` 构建是否在此列出。如果找不到相关问题，请创建一个新问题——指定您的构建版本以便添加支持。
-
-> 为什么 `RDPCheck` 不允许更改分辨率和其他设置？
-
-`RDPCheck` 是一个非常简单的应用程序，仅用于测试目的。如果您想自定义设置，需要使用 Microsoft 远程桌面客户端 (`mstsc.exe`)。您可以使用 `127.0.0.1` 或 `127.0.0.2` 地址进行本地连接。
-
-### 已知问题：
-- 从 Windows 8 **在平板电脑上**开始，系统将自动注销非活动会话 - [更多信息](https://github.com/stascorp/rdpwrap/issues/37)
-- 从 Windows 10 开始，您可能会意外锁定自己无法访问 PC - [更多信息](https://github.com/stascorp/rdpwrap/issues/50)
-- 从 Windows 10 家庭版的创作者更新开始，RDP Wrapper 将不再工作，声称监听器为 `[not listening]`，因为 `rfxvmt.dll` 缺失 - [更多信息](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-323564111)，[下载链接](https://github.com/stascorp/rdpwrap/issues/194#issuecomment-325627235)
-- 安装某些更新后，终端服务无法启动或出现“访问被拒绝”问题 - [#215](https://github.com/stascorp/rdpwrap/issues/215)，[#101](https://github.com/stascorp/rdpwrap/issues/101)
-- RDP Wrapper 不支持启用 RemoteFX 的主机 - [#127](https://github.com/stascorp/rdpwrap/issues/127)，[#208](https://github.com/stascorp/rdpwrap/issues/208)，[#216](https://github.com/stascorp/rdpwrap/issues/216)
-- RDP 可以使用，但在登录尝试时 termsrv.dll 崩溃 - Windows Vista Starter RTM x86 (termsrv.dll `6.0.6000.16386`)
-- 如果终端服务在启动时挂起，请尝试将 **`rdpwrap.dll`** 添加到防病毒软件的排除列表中。还可以通过以下命令将 RDP Wrapper 与其他共享服务隔离：
-<br>`sc config TermService type= own`
-- RDP Wrapper 可能会被 AVG Free Antivirus 和 [Norton Antivirus](https://github.com/stascorp/rdpwrap/issues/191) 删除 - 首先确保您从 GitHub 下载了 [官方版本](https://github.com/stascorp/rdpwrap/releases)，然后将其添加到排除列表中。
-
----
-
-### 更新日志：
-
-### 使用方法
-
-安装：
-- 下载最新版本的二进制文件并解压
-- 右键点击 **`install.bat`** 并选择“以管理员身份运行”
-- 查看命令输出以获取详细信息
-
-更新 INI 文件：
-- 右键点击 **`update.bat`** 并选择“以管理员身份运行”
-- 查看命令输出以获取详细信息
-
-卸载：
-- 进入你解压文件的目录
-- 右键点击 **`uninstall.bat`** 并选择“以管理员身份运行”
-- 查看命令输出以获取详细信息
+- 本软件会修改 Windows 服务、注册表和防火墙配置。
+- 杀毒软件可能会对服务 Wrapper 或内存 Hook 行为报警。如果对供应链有要求，
+  建议自行审查并构建源代码。
+- Windows 更新可能先发布新的 `termsrv.dll`，而对应 INI 配置节尚未更新。
+- 并发会话功能可能受到 Windows 授权条款或当地法律限制，使用者应自行确认
+  已获得授权并符合相关要求。
+- 本项目不提供任何担保，详情见 [LICENSE](LICENSE)。
