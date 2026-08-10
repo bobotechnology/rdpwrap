@@ -32,7 +32,7 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 
 ## 本版本的主要改动
 
-- 使用 C++17 重新实现原 Delphi `RDPWInst` 安装器。
+- 使用 C++17 重新实现旧版 `RDPWInst` 安装器。
 - 使用仓库根目录 CMake 统一构建 `RDPWInst.exe`、`RDP_CnC.exe` 和
   `rdpwrap.dll`。
 - x86/x64 及实验性的 ARM32/ARM64 Wrapper 构建统一使用 MSVC。
@@ -83,8 +83,9 @@ cmake -S . -B build-arm32 -G "Visual Studio 17 2022" `
 cmake --build build-arm32 --config Release --target rdpwrap --parallel
 ```
 
-MSVC 会直接链接旧 Delphi `resource.res`。随后由一个 MSVC 构建的小工具在最终
-安装器中替换当前维护的资源，不再需要 MinGW 或 `windres`。
+MSVC 会从保留的系统 Payload 文件编译 `src-installer/installer.rc`。随后由一个 MSVC
+构建的小工具把当前维护的配置、许可证和本次构建产物加入最终安装器，不再需要 MinGW
+或 `windres`。
 
 产物位于构建目录的 `bin` 子目录。原生 x64 构建会把刚构建的 x64
 `rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入 `RDPWInst.exe`。
@@ -105,6 +106,10 @@ Wrapper 架构并上传产物。Win32 聚合 Installer 包含本次构建的 `RD
 `RDPWARM` 和 `RDPWARM64`。在 ARM 系统上会选择 `rdpwrap-arm-kb.ini`，并跳过仅适用于
 x86/x64 的旧系统组件资源。工作流还会生成原生 ARM32 `RDPWInst-arm32.exe`；在 ARM64
 Windows 上仍以兼容范围更广的 Win32 聚合 Installer 作为默认选择。
+
+手动触发 `Publish release` 工作流时，可选择递增语义版本的 `patch`、`minor` 或
+`major`。工作流会执行同一套多架构构建与验证，生成 ZIP 和 SHA-256 文件，提交版本号、
+创建对应的 `vX.Y.Z` 标签，并发布带自动生成说明的 GitHub Release。
 
 ## 安装器命令
 
@@ -138,10 +143,14 @@ RDPWInst.exe -r
 | 文件 | 用途 |
 | --- | --- |
 | `RDPWInst.exe` | 安装、卸载、更新和服务控制工具。 |
+| `RDPWInst-arm32.exe` | 原生 ARM32 Installer。 |
 | `RDP_CnC.exe` | Wrapper 状态及 RDP 配置程序。 |
 | `install.bat` | 在线安装快捷脚本。 |
 | `update.bat` | INI 更新快捷脚本。 |
 | `uninstall.bat` | 安全卸载快捷脚本。 |
+| `install-arm32.bat` | 原生 ARM32 安装快捷脚本。 |
+| `update-arm32.bat` | 原生 ARM32 更新快捷脚本。 |
+| `uninstall-arm32.bat` | 原生 ARM32 卸载快捷脚本。 |
 
 在解压后的发布目录中运行：
 
@@ -149,6 +158,11 @@ RDPWInst.exe -r
 install.bat
 update.bat
 uninstall.bat
+
+rem 原生 ARM32 对应脚本：
+install-arm32.bat
+update-arm32.bat
+uninstall-arm32.bat
 ```
 
 脚本会正确返回失败状态。卸载逻辑只删除项目已知文件；如果安装目录中存在

@@ -36,7 +36,7 @@ to the original project.
 
 ## Changes in this edition
 
-- Reimplemented the Delphi `RDPWInst` installer in C++17.
+- Reimplemented the legacy `RDPWInst` installer in C++17.
 - Added a unified repository-level CMake build for `RDPWInst.exe`,
   `RDP_CnC.exe`, and `rdpwrap.dll`.
 - Uses MSVC consistently for x86/x64 and experimental ARM32/ARM64 wrapper builds.
@@ -93,9 +93,10 @@ cmake -S . -B build-arm32 -G "Visual Studio 17 2022" `
 cmake --build build-arm32 --config Release --target rdpwrap --parallel
 ```
 
-The legacy Delphi `resource.res` is linked directly by MSVC. A small build tool
-then replaces the maintained payloads in the resulting installer; MinGW and
-`windres` are not required.
+MSVC compiles `src-installer/installer.rc` from the preserved system payload
+files. A small MSVC build tool then adds maintained configuration, license, and
+current build outputs to the final Installer; MinGW and `windres` are not
+required.
 
 Outputs are written below the build directory's `bin` folder. A native x64
 build embeds its freshly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
@@ -120,6 +121,12 @@ and `RDPWARM64` payloads. On ARM systems it selects `rdpwrap-arm-kb.ini` and
 does not extract the x86/x64-only legacy system-component resources. The
 workflow also produces a native ARM32 `RDPWInst-arm32.exe`; the Win32 aggregate
 Installer remains the broadly compatible default on ARM64 Windows.
+
+The manually triggered `Publish release` workflow increments `VERSION` using a
+selected semantic-version component (`patch`, `minor`, or `major`), performs
+the same verified multi-architecture build, creates a ZIP plus SHA-256 file,
+commits the version, creates the matching `vX.Y.Z` tag, and publishes the
+GitHub Release with generated notes.
 
 ## Installer commands
 
@@ -153,10 +160,14 @@ Release packages normally contain:
 | File | Purpose |
 | --- | --- |
 | `RDPWInst.exe` | Installer, uninstaller, updater, and service control tool. |
+| `RDPWInst-arm32.exe` | Native ARM32 build of the Installer. |
 | `RDP_CnC.exe` | Wrapper status and RDP configuration application. |
 | `install.bat` | Online installation shortcut. |
 | `update.bat` | INI update shortcut. |
 | `uninstall.bat` | Safe uninstall shortcut. |
+| `install-arm32.bat` | Native ARM32 installation shortcut. |
+| `update-arm32.bat` | Native ARM32 update shortcut. |
+| `uninstall-arm32.bat` | Native ARM32 uninstall shortcut. |
 
 From the extracted release directory:
 
@@ -164,6 +175,11 @@ From the extracted release directory:
 install.bat
 update.bat
 uninstall.bat
+
+rem Native ARM32 alternatives:
+install-arm32.bat
+update-arm32.bat
+uninstall-arm32.bat
 ```
 
 The scripts propagate failures through their exit codes. The uninstaller only

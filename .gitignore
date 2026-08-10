@@ -1,16 +1,11 @@
-# Delphi local files (user-specific info)
-*.local
-*.identcache
-
-# Delphi history and backups
-__history/
-*.~*
-
 # Compiled binaries
-*.dcu
 *.exe
 *.dll
 *.msi
+
+# System payloads extracted from the former Installer resource container.
+!src-installer/resources/*.exe
+!src-installer/resources/*.dll
 
 # MSI local stuff
 *.wixobj
@@ -19,6 +14,8 @@ __history/
 # Visual Studio build artifacts
 .vs/
 bin/
+!/bin/
+!/bin/*.bat
 obj/
 x64/
 Release/

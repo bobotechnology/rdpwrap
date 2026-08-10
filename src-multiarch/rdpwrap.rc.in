@@ -1,8 +1,5 @@
 #include <windows.h>
 
-1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/src-RDP_CnC/RDP.ico"
-
-
 1 VERSIONINFO
  FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
  PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
@@ -13,17 +10,17 @@
  FILEFLAGS 0x0L
 #endif
  FILEOS VOS_NT_WINDOWS32
- FILETYPE VFT_APP
+ FILETYPE VFT_DLL
  FILESUBTYPE VFT2_UNKNOWN
 BEGIN
     BLOCK "StringFileInfo"
     BEGIN
         BLOCK "04090000"
         BEGIN
-            VALUE "FileDescription", "RDP Wrapper Configuration"
+            VALUE "FileDescription", "RDP Wrapper Library"
             VALUE "FileVersion", "@PROJECT_VERSION@.0"
-            VALUE "InternalName", "RDP_CnC"
-            VALUE "OriginalFilename", "RDP_CnC.exe"
+            VALUE "InternalName", "rdpwrap"
+            VALUE "OriginalFilename", "rdpwrap.dll"
             VALUE "ProductName", "RDP Wrapper"
             VALUE "ProductVersion", "@PROJECT_VERSION@.0"
         END

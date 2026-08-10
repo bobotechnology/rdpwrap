@@ -1,6 +1,6 @@
 # RDPWInst C++ port
 
-This directory contains a C++17/Win32 port of the original Delphi installer.
+This directory contains the maintained C++17/Win32 Installer.
 The command-line interface is preserved. Repository builds replace the legacy
 embedded INI and current-architecture binaries with the maintained/build
 outputs.
@@ -14,10 +14,10 @@ cmake -S . -B build -A Win32
 cmake --build build --config Release
 ```
 
-The executable is written to `build/Release/RDPWInst.exe`. The original Delphi
-target was Win32. MSVC links the legacy Delphi `resource.res` directly, then a
-small MSVC build tool replaces the maintained payloads and embeds the
-`asInvoker` application manifest.
+The executable is written to `build/Release/RDPWInst.exe`. MSVC compiles
+`installer.rc` from the preserved system payload files, then a small MSVC
+build tool adds maintained resources and embeds the `asInvoker` application
+manifest.
 
 Every invocation relaunches itself through the `runas` verb when needed.
 The relaunch uses `SEE_MASK_NO_CONSOLE`, but UAC broker behavior is not

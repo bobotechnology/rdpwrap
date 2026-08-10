@@ -1,0 +1,143 @@
+name: Publish release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Semantic version component to increment
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: Mark the GitHub Release as a prerelease
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: windows-2022
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout master with tags
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Calculate and write next version
+        id: version
+        shell: pwsh
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          $text = (Get-Content -LiteralPath VERSION -Raw).Trim()
+          if ($text -notmatch '^(\d+)\.(\d+)\.(\d+)$') {
+            throw "VERSION is not semantic x.y.z: $text"
+          }
+          $latestTag = git tag --list 'v[0-9]*' --sort=-version:refname |
+            Select-Object -First 1
+          if ($latestTag) { $latestTag = $latestTag.Trim() }
+          if ($latestTag -and $latestTag -ne "v$text") {
+            throw "VERSION ($text) does not match latest tag ($latestTag)"
+          }
+          $major = [int]$Matches[1]
+          $minor = [int]$Matches[2]
+          $patch = [int]$Matches[3]
+          switch ($env:BUMP) {
+            'major' { $major++; $minor = 0; $patch = 0 }
+            'minor' { $minor++; $patch = 0 }
+            'patch' { $patch++ }
+            default { throw "Unsupported version bump: $env:BUMP" }
+          }
+          $next = "$major.$minor.$patch"
+          $tag = "v$next"
+          if (git rev-parse --verify --quiet "refs/tags/$tag") {
+            throw "Tag already exists: $tag"
+          }
+          [IO.File]::WriteAllText(
+            (Join-Path $env:GITHUB_WORKSPACE 'VERSION'),
+            "$next`n",
+            [Text.UTF8Encoding]::new($false))
+          "version=$next" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "base_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
+          Write-Host "Preparing $tag"
+
+      - name: Build and verify release bundle
+        shell: pwsh
+        run: ./.github/scripts/build-release.ps1
+
+      - name: Create release archives
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $archive = "RDPWrap-v$env:VERSION.zip"
+          Compress-Archive -Path dist/* -DestinationPath $archive -CompressionLevel Optimal
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          [IO.File]::WriteAllText(
+            (Join-Path $env:GITHUB_WORKSPACE 'SHA256SUMS.txt'),
+            "$hash  $archive`n",
+            [Text.UTF8Encoding]::new($false))
+
+      - name: Upload packaged release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: RDPWrap-release-${{ steps.version.outputs.version }}
+          path: |
+            RDPWrap-v${{ steps.version.outputs.version }}.zip
+            SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit version, tag, and publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          BASE_SHA: ${{ steps.version.outputs.base_sha }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          git fetch origin master --tags
+          $remote = (git rev-parse origin/master).Trim()
+          if ($remote -ne $env:BASE_SHA) {
+            throw "origin/master changed during release build; rerun the workflow"
+          }
+
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add -- VERSION
+          git diff --cached --check
+          git commit -m "Release $env:TAG [skip ci]"
+          git tag -a $env:TAG -m "RDP Wrapper $env:TAG"
+          git push --atomic origin HEAD:master "refs/tags/$env:TAG"
+
+          $archive = "RDPWrap-v$env:VERSION.zip"
+          $arguments = @(
+            'release', 'create', $env:TAG,
+            $archive, 'SHA256SUMS.txt',
+            '--verify-tag', '--generate-notes',
+            '--title', "RDP Wrapper $env:TAG"
+          )
+          if ($env:PRERELEASE -eq 'true') {
+            $arguments += '--prerelease'
+            $arguments += '--latest=false'
+          } else {
+            $arguments += '--latest'
+          }
+          & gh @arguments
+          if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/generated")
+configure_file(rdpwrap.rc.in
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/rdpwrap.rc" @ONLY)
+
 add_library(rdpwrap SHARED
   dllmain.cpp
   cpp_configparser/src/parser.cpp
@@ -9,6 +13,7 @@ add_library(rdpwrap SHARED
   rdpwrap_hook.cpp
   rdpwrap_entry.cpp
   stdafx.cpp
+  "${CMAKE_CURRENT_BINARY_DIR}/generated/rdpwrap.rc"
   Export.def
 )
 

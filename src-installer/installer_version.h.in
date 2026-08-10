@@ -1,0 +1,3 @@
+#pragma once
+
+#define RDPWRAP_VERSION_W L"@PROJECT_VERSION@"

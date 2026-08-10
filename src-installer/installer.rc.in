@@ -1,0 +1,44 @@
+#include <windows.h>
+
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+
+RDPCLIP6032 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rdpclip-6.0-x86.exe"
+RDPCLIP6064 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rdpclip-6.0-x64.exe"
+RDPCLIP6132 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rdpclip-6.1-x86.exe"
+RDPCLIP6164 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rdpclip-6.1-x64.exe"
+RFXVMT32 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rfxvmt-x86.dll"
+RFXVMT64 RCDATA "@CMAKE_CURRENT_SOURCE_DIR@/resources/rfxvmt-x64.dll"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+1 VERSIONINFO
+ FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS_NT_WINDOWS32
+ FILETYPE VFT_APP
+ FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "04090000"
+        BEGIN
+            VALUE "FileDescription", "RDP Wrapper Library Installer"
+            VALUE "FileVersion", "@PROJECT_VERSION@.0"
+            VALUE "InternalName", "RDPWInst"
+            VALUE "LegalCopyright", ""
+            VALUE "OriginalFilename", "RDPWInst.exe"
+            VALUE "ProductName", "RDP Host Support"
+            VALUE "ProductVersion", "@PROJECT_VERSION@.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x0000
+    END
+END

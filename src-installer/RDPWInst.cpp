@@ -3,6 +3,7 @@
 // Licensed under the Apache License, Version 2.0.
 
 #include <windows.h>
+#include "installer_version.h"
 #include <shellapi.h>
 #include <shlobj.h>
 #include <objbase.h>
@@ -1134,7 +1135,7 @@ bool validCommandArguments(const std::wstring& command, int argc, wchar_t* argv[
 }
 
 void printBanner() {
-    std::wcout << L"RDP Wrapper Library v1.8.7\n"
+    std::wcout << L"RDP Wrapper Library v" RDPWRAP_VERSION_W L"\n"
                   L"Copyright (C) Stas'M Corp. 2017\n"
                   L"Edited by bobo 2026\n\n";
 }
@@ -1524,7 +1525,7 @@ int wmain(int argc, wchar_t* argv[]) {
                 std::wcout << L"[*] Checking dependencies...\n";
                 checkTermsrvDependencies();
                 // CheckTermsrvProcess above captured the PID and shared-service
-                // list. Match the Delphi sequence instead of rediscovering it.
+                // list. Preserve the established sequence instead of rediscovering it.
                 restartKnownTermService(true);
                 std::wcout << L"[*] Configuring registry...\n";
                 configureTerminalServicesRegistry(true);
