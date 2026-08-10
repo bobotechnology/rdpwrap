@@ -35,7 +35,7 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 - 使用 C++17 重新实现原 Delphi `RDPWInst` 安装器。
 - 使用仓库根目录 CMake 统一构建 `RDPWInst.exe`、`RDP_CnC.exe` 和
   `rdpwrap.dll`。
-- 维护中的 x86/x64 构建路径统一使用 MSVC。
+- x86/x64 及实验性的 ARM32/ARM64 Wrapper 构建统一使用 MSVC。
 - Installer、Wrapper 与 CnC 统一使用 `dwProductVersionMS` 和
   `dwProductVersionLS` 匹配 `termsrv.dll` 的 INI 配置节。
 - UAC 提权时通过命名管道把输出转发回原 CMD，不再依赖不稳定的控制台继承，
@@ -53,8 +53,9 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 - 本二次开发版本主要面向并验证 Windows 10/11。
 - 是否支持当前系统，取决于活动 `rdpwrap.ini` 中是否存在与
   `termsrv.dll` **产品版本**完全一致的配置节。
-- 根 CMake 当前维护和验证 x86/x64。仓库中的 ARM/ARM64 文件属于旧有或
-  实验路径，尚未纳入当前验证过的发布流水线。
+- 发布流水线会构建 x86、x64、ARM32 和 ARM64 Wrapper。ARM 运行时支持仍属于
+  实验功能，并使用独立的 `res/rdpwrap-arm-kb.ini`；聚合 Installer 当前仍只安装
+  x86/x64 Payload。
 
 如果此前使用其他工具修改过 `termsrv.dll`，请先恢复 Microsoft 原始文件。
 修改远程访问配置前建议创建还原点或其他恢复方式；如果机器只能通过 RDP
@@ -67,6 +68,16 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 ```powershell
 cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
+```
+
+ARM Wrapper 需要安装对应的 MSVC 交叉编译器，其中 ARM32 使用旧版 v142 工具集：
+
+```powershell
+cmake -S . -B build-arm64 -G "Visual Studio 17 2022" -A ARM64
+cmake --build build-arm64 --config Release --target rdpwrap --parallel
+
+cmake -S . -B build-arm32 -G "Visual Studio 17 2022" -A ARM -T v142
+cmake --build build-arm32 --config Release --target rdpwrap --parallel
 ```
 
 MSVC 会直接链接旧 Delphi `resource.res`。随后由一个 MSVC 构建的小工具在最终
@@ -84,8 +95,9 @@ cmake -S . -B build-msvc32 -A Win32 `
 cmake --build build-msvc32 --config Release --parallel
 ```
 
-`Build MSVC release` GitHub Actions 工作流会在每次 push 和 pull request 时自动执行上述两次
-构建并上传可直接使用的产物。其 Win32 安装器同时包含本次构建的 `RDPW32` 和 `RDPW64`。
+`Build MSVC release` GitHub Actions 工作流会在每次 push 和 pull request 时构建全部四种
+Wrapper 架构并上传产物。Win32 安装器包含本次构建的 `RDPW32` 和 `RDPW64`；ARM DLL 和
+`rdpwrap-arm-kb.ini` 则作为独立的实验性产物提供。
 
 ## 安装器命令
 

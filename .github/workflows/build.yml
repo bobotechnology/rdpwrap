@@ -27,6 +27,18 @@ jobs:
           cmake -S . -B build-x64 -G "Visual Studio 17 2022" -A x64
           cmake --build build-x64 --config Release --target rdpwrap --parallel
 
+      - name: Build ARM64 wrapper
+        shell: pwsh
+        run: |
+          cmake -S . -B build-arm64 -G "Visual Studio 17 2022" -A ARM64
+          cmake --build build-arm64 --config Release --target rdpwrap --parallel
+
+      - name: Build ARM32 wrapper
+        shell: pwsh
+        run: |
+          cmake -S . -B build-arm32 -G "Visual Studio 17 2022" -A ARM -T v142
+          cmake --build build-arm32 --config Release --target rdpwrap --parallel
+
       - name: Build Win32 aggregate installer
         shell: pwsh
         run: |
@@ -41,12 +53,32 @@ jobs:
       - name: Assemble release artifact
         shell: pwsh
         run: |
+          function Assert-PeMachine([string]$Path, [uint16]$Expected) {
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            if ($bytes.Length -lt 64) { throw "Invalid PE file: $Path" }
+            $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+            if ($peOffset -lt 0 -or $peOffset + 6 -gt $bytes.Length) {
+              throw "Invalid PE header: $Path"
+            }
+            $machine = [BitConverter]::ToUInt16($bytes, $peOffset + 4)
+            if ($machine -ne $Expected) {
+              throw "Unexpected PE machine 0x$($machine.ToString('X4')) in $Path"
+            }
+          }
+
+          Assert-PeMachine build-x86/bin/Release/rdpwrap.dll 0x014c
+          Assert-PeMachine build-x64/bin/Release/rdpwrap.dll 0x8664
+          Assert-PeMachine build-arm32/bin/Release/rdpwrap.dll 0x01c4
+          Assert-PeMachine build-arm64/bin/Release/rdpwrap.dll 0xaa64
+
           New-Item -ItemType Directory -Path dist | Out-Null
           Copy-Item build-x86/bin/Release/RDPWInst.exe dist/
           Copy-Item build-x86/bin/Release/RDP_CnC.exe dist/
           Copy-Item build-x86/bin/Release/rdpwrap.dll dist/rdpwrap-x86.dll
           Copy-Item build-x64/bin/Release/rdpwrap.dll dist/rdpwrap-x64.dll
-          Copy-Item res/rdpwrap.ini dist/
+          Copy-Item build-arm32/bin/Release/rdpwrap.dll dist/rdpwrap-arm32.dll
+          Copy-Item build-arm64/bin/Release/rdpwrap.dll dist/rdpwrap-arm64.dll
+          Copy-Item res/rdpwrap.ini,res/rdpwrap-arm-kb.ini dist/
           Copy-Item bin/install.bat,bin/update.bat,bin/uninstall.bat dist/
           Copy-Item README.md,README_CN.md,LICENSE dist/
           Get-ChildItem dist | Format-Table Name,Length

@@ -39,7 +39,7 @@ to the original project.
 - Reimplemented the Delphi `RDPWInst` installer in C++17.
 - Added a unified repository-level CMake build for `RDPWInst.exe`,
   `RDP_CnC.exe`, and `rdpwrap.dll`.
-- Uses MSVC consistently for the maintained x86/x64 build path.
+- Uses MSVC consistently for x86/x64 and experimental ARM32/ARM64 wrapper builds.
 - Uses `dwProductVersionMS` and `dwProductVersionLS` consistently when matching
   `termsrv.dll` against INI sections.
 - Preserves command output in the original CMD during UAC elevation by relaying
@@ -59,9 +59,9 @@ to the original project.
 - Windows 10/11 are the primary supported and tested targets for this edition.
 - Actual `termsrv.dll` support depends on whether the active `rdpwrap.ini`
   contains the exact Windows product-version section.
-- The maintained root CMake build currently targets x86/x64. ARM/ARM64 files in
-  the repository are legacy/experimental paths and are not part of the verified
-  release pipeline.
+- The release pipeline builds x86, x64, ARM32, and ARM64 wrappers. ARM runtime
+  support remains experimental and uses the separate `res/rdpwrap-arm-kb.ini`;
+  the aggregate Installer currently installs x86/x64 payloads only.
 
 Before installation, restore an original Microsoft `termsrv.dll` if another
 patcher modified it. Create a restore point or other recovery path before
@@ -75,6 +75,17 @@ Build from the repository root with Visual Studio 2022 and MSVC:
 ```powershell
 cmake -S . -B build-msvc -A x64
 cmake --build build-msvc --config Release --parallel
+```
+
+The ARM wrappers require the corresponding MSVC cross-compilers. ARM32 uses
+the legacy v142 toolset:
+
+```powershell
+cmake -S . -B build-arm64 -G "Visual Studio 17 2022" -A ARM64
+cmake --build build-arm64 --config Release --target rdpwrap --parallel
+
+cmake -S . -B build-arm32 -G "Visual Studio 17 2022" -A ARM -T v142
+cmake --build build-arm32 --config Release --target rdpwrap --parallel
 ```
 
 The legacy Delphi `resource.res` is linked directly by MSVC. A small build tool
@@ -95,9 +106,10 @@ cmake -S . -B build-msvc32 -A Win32 `
 cmake --build build-msvc32 --config Release --parallel
 ```
 
-The `Build MSVC release` GitHub Actions workflow performs both builds and
-uploads a ready-to-use artifact on every push and pull request. Its Win32
-installer contains the freshly built `RDPW32` and `RDPW64` payloads.
+The `Build MSVC release` GitHub Actions workflow builds all four wrapper
+architectures and uploads them on every push and pull request. Its Win32
+installer contains the freshly built `RDPW32` and `RDPW64` payloads; the ARM
+DLLs and `rdpwrap-arm-kb.ini` are included as separate experimental artifacts.
 
 ## Installer commands
 
