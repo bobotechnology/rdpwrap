@@ -1,5 +1,6 @@
 {
   Copyright 2017 Stas'M Corp.
+  Copyright 2025-2026 bobo
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -1359,6 +1360,7 @@ var
 begin
   Writeln('RDP Wrapper Library v1.8.7');
   Writeln('Copyright (C) Stas''M Corp. 2017');
+  Writeln('Edited by bobo 2026');
   Writeln('');
 
   if (ParamCount < 1)

@@ -630,8 +630,8 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         // License button
         else if (id == IDC_LICENSE) {
             MessageBoxW(h,
-                        tr(L"RDP_CnC\n\nCopyright 2017-2024 Stas'M Corp. and sebaxakerhtc.\nLicensed under the Apache License, Version 2.0.\n\nYou may obtain a copy of the License at\nhttp://www.apache.org/licenses/LICENSE-2.0",
-                           L"RDP_CnC\n\n版权所有 2017-2024 Stas'M Corp.、sebaxakerhtc。\n基于 Apache License 2.0 版授权。\n\n许可证全文：\nhttp://www.apache.org/licenses/LICENSE-2.0"),
+                        tr(L"RDP_CnC\n\nCopyright 2017-2026 Stas'M Corp., sebaxakerhtc and bobo.\nLicensed under the Apache License, Version 2.0.\n\nYou may obtain a copy of the License at\nhttp://www.apache.org/licenses/LICENSE-2.0",
+                           L"RDP_CnC\n\n版权所有 2017-2026 Stas'M Corp.、sebaxakerhtc 和 bobo。\n基于 Apache License 2.0 版授权。\n\n许可证全文：\nhttp://www.apache.org/licenses/LICENSE-2.0"),
                         tr(L"License", L"许可协议"), MB_OK | MB_ICONINFORMATION);
         }
         // MSTSC buttons
