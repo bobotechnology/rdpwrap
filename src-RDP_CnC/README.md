@@ -2,7 +2,8 @@
 
 Native Win32 C++17 configuration utility for RDP Wrapper and Windows Remote
 Desktop. The application reads and writes Terminal Server settings, reports
-Wrapper/TermService/listener status, checks `rdpwrap.ini` compatibility,
+Wrapper/TermService/listener status, checks the architecture-specific
+`rdpwrap.ini` or `rdpwrap-arm-kb.ini` compatibility,
 launches local `mstsc` tests, updates the INI, and restarts TermService.
 
 This directory contains the C++17 Win32 configuration utility. The repository

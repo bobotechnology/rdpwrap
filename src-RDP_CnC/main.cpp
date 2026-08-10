@@ -156,14 +156,53 @@ static void modernizeUi() {
 }
 
 // Expand environment variables
+static std::wstring regString(
+    HKEY root, const wchar_t* path, const wchar_t* name);
+
 static std::wstring expandEnv(const std::wstring& value) {
-    DWORD n = ExpandEnvironmentStringsW(value.c_str(), nullptr, 0);
+    std::wstring source = value;
+    const std::wstring nativeProgramFiles = regString(HKEY_LOCAL_MACHINE,
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion", L"ProgramFilesDir");
+    if (!nativeProgramFiles.empty()) {
+        const std::wstring token = L"%ProgramFiles%";
+        std::wstring lowered = source;
+        std::transform(lowered.begin(), lowered.end(), lowered.begin(), towlower);
+        const size_t position = lowered.find(L"%programfiles%");
+        if (position != std::wstring::npos)
+            source.replace(position, token.size(), nativeProgramFiles);
+    }
+
+    DWORD n = ExpandEnvironmentStringsW(source.c_str(), nullptr, 0);
     if (!n) return value;
     std::wstring out(n, L'\0');
-    DWORD written = ExpandEnvironmentStringsW(value.c_str(), out.data(), n);
+    DWORD written = ExpandEnvironmentStringsW(source.c_str(), out.data(), n);
     if (!written || written > n) return value;
     out.resize(written - 1);
     return out;
+}
+
+static WORD peMachine(const std::wstring& path) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return IMAGE_FILE_MACHINE_UNKNOWN;
+
+    auto readExact = [file](void* data, DWORD size) {
+        DWORD read = 0;
+        return ReadFile(file, data, size, &read, nullptr) && read == size;
+    };
+    IMAGE_DOS_HEADER dos{};
+    bool ok = readExact(&dos, sizeof(dos)) && dos.e_magic == IMAGE_DOS_SIGNATURE &&
+              dos.e_lfanew > 0 && dos.e_lfanew <= 16 * 1024 * 1024;
+    LARGE_INTEGER offset{};
+    offset.QuadPart = dos.e_lfanew;
+    DWORD signature = 0;
+    IMAGE_FILE_HEADER header{};
+    ok = ok && SetFilePointerEx(file, offset, nullptr, FILE_BEGIN) &&
+         readExact(&signature, sizeof(signature)) && signature == IMAGE_NT_SIGNATURE &&
+         readExact(&header, sizeof(header));
+    CloseHandle(file);
+    return ok ? header.Machine : IMAGE_FILE_MACHINE_UNKNOWN;
 }
 
 // Registry string read
@@ -505,7 +544,10 @@ static int supportLevel(const std::wstring& wrapperPath, const std::wstring& tsV
     if (slash == std::wstring::npos) return 0;
 
     ini.resize(slash + 1);
-    ini += L"rdpwrap.ini";
+    const WORD machine = peMachine(wrapperPath);
+    ini += machine == IMAGE_FILE_MACHINE_ARMNT || machine == IMAGE_FILE_MACHINE_ARM64
+        ? L"rdpwrap-arm-kb.ini"
+        : L"rdpwrap.ini";
 
     std::wifstream f(ini.c_str());
     if (!f) return 0;

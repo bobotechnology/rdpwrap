@@ -60,8 +60,9 @@ to the original project.
 - Release binaries remain load-compatible with Windows Vista. Newer optional
   APIs are resolved dynamically, and CI rejects known post-Vista static imports;
   Vista is a compatibility target rather than a continuously executed test OS.
-- Actual `termsrv.dll` support depends on whether the active `rdpwrap.ini`
-  contains the exact Windows product-version section.
+- Actual `termsrv.dll` support depends on whether the active architecture's
+  `rdpwrap.ini` or `rdpwrap-arm-kb.ini` contains the exact Windows
+  product-version section.
 - The release pipeline builds x86, x64, ARM32, and ARM64 wrappers. ARM runtime
   support remains experimental and uses the separate `res/rdpwrap-arm-kb.ini`.
   The aggregate Installer embeds and selects all four wrapper architectures.

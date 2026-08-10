@@ -61,7 +61,6 @@ bool online = false;
 std::string onlineIniContent;
 BYTE arch = 0;
 NativeArchitecture nativeArchitecture = NativeArchitecture::Unknown;
-PVOID oldWow64RedirectionValue = nullptr;
 std::wstring wrapPath;
 std::wstring termServicePath;
 FileVersion fileVersion;
@@ -112,13 +111,28 @@ bool containsInsensitive(const std::wstring& value, const std::wstring& needle) 
     return lower(value).find(lower(needle)) != std::wstring::npos;
 }
 
+std::optional<std::wstring> readRegistryString(
+    const wchar_t* subKey, const wchar_t* name);
+
 std::wstring expandPath(std::wstring path) {
-    if (arch == 64) {
+    const auto nativeProgramFiles = readRegistryString(
+        L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion", L"ProgramFilesDir");
+    if (nativeProgramFiles && !nativeProgramFiles->empty()) {
         const std::wstring from = L"%ProgramFiles%";
-        const std::wstring to = L"%ProgramW6432%";
         auto pos = lower(path).find(lower(from));
+        if (pos != std::wstring::npos)
+            path.replace(pos, from.size(), *nativeProgramFiles);
+    }
+#if !defined(_WIN64)
+    // Use the documented virtual alias instead of disabling WOW64 file-system
+    // redirection across a large block of unrelated installer operations.
+    if (arch == 64) {
+        const std::wstring from = L"%SystemRoot%\\System32";
+        const std::wstring to = L"%SystemRoot%\\Sysnative";
+        const auto pos = lower(path).find(lower(from));
         if (pos != std::wstring::npos) path.replace(pos, from.size(), to);
     }
+#endif
     DWORD size = ExpandEnvironmentStringsW(path.c_str(), nullptr, 0);
     if (!size) return {};
     std::wstring result(size, L'\0');
@@ -298,31 +312,6 @@ bool supportedArchitecture() {
            nativeArchitecture == NativeArchitecture::Arm64 ? 64 : 0;
     return arch != 0;
 }
-
-bool disableWowRedirection() {
-    using Function = BOOL(WINAPI*)(PVOID*);
-    auto function = loadFunction<Function>(GetModuleHandleW(L"kernel32.dll"),
-        "Wow64DisableWow64FsRedirection");
-    return function && function(&oldWow64RedirectionValue);
-}
-
-bool revertWowRedirection() {
-    using Function = BOOL(WINAPI*)(PVOID);
-    auto function = loadFunction<Function>(GetModuleHandleW(L"kernel32.dll"),
-        "Wow64RevertWow64FsRedirection");
-    return function && function(oldWow64RedirectionValue);
-}
-
-class Wow64RedirectionGuard final {
-public:
-    explicit Wow64RedirectionGuard(bool enable)
-        : active_(enable && disableWowRedirection()) {}
-    ~Wow64RedirectionGuard() { if (active_) revertWowRedirection(); }
-    Wow64RedirectionGuard(const Wow64RedirectionGuard&) = delete;
-    Wow64RedirectionGuard& operator=(const Wow64RedirectionGuard&) = delete;
-private:
-    bool active_;
-};
 
 void checkInstall() {
     constexpr wchar_t serviceKey[] = L"SYSTEM\\CurrentControlSet\\Services\\TermService";
@@ -576,8 +565,8 @@ void setWrapperDll() {
         std::wcout << L"[-] WriteExpandString error.\n"; halt(ERROR_ACCESS_DENIED);
     }
     if (arch == 64 && fileVersion.major == 6 && fileVersion.minor == 0) {
-        if (!execWait(L"\"" + expandPath(L"%SystemRoot%") +
-            L"\\system32\\reg.exe\" add HKLM\\SYSTEM\\CurrentControlSet\\Services\\TermService\\Parameters "
+        if (!execWait(L"\"" + expandPath(L"%SystemRoot%\\System32\\reg.exe") +
+            L"\" add HKLM\\SYSTEM\\CurrentControlSet\\Services\\TermService\\Parameters "
             L"/v ServiceDll /t REG_EXPAND_SZ /d \"" + wrapPath + L"\" /f"))
             halt(ERROR_GEN_FAILURE);
     }
@@ -1513,7 +1502,6 @@ int wmain(int argc, wchar_t* argv[]) {
                 if (std::wstring(argv[index]) == L"-s") system32 = true;
             wrapPath = system32 ? L"%SystemRoot%\\system32\\rdpwrap.dll"
                                 : L"%ProgramFiles%\\RDP Wrapper\\rdpwrap.dll";
-            Wow64RedirectionGuard wow64Guard(arch == 64);
             online = (argc > 2 && std::wstring(argv[2]) == L"-o") ||
                      (argc > 3 && std::wstring(argv[3]) == L"-o");
             onlineIniContent.clear();
@@ -1564,7 +1552,6 @@ int wmain(int argc, wchar_t* argv[]) {
         } else if (command == L"-u") {
             if (!installed) { std::wcout << L"[*] RDP Wrapper Library is not installed.\n"; halt(ERROR_INVALID_FUNCTION); }
             std::wcout << L"[*] Uninstalling...\n";
-            Wow64RedirectionGuard wow64Guard(arch == 64);
             checkTermsrvProcess();
             std::wcout << L"[*] Resetting service library...\n";
             resetServiceDll();

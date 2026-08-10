@@ -53,8 +53,8 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 - 本二次开发版本主要面向并验证 Windows 10/11。
 - 发布二进制文件保持 Windows Vista 加载兼容性。较新的可选 API 会动态解析，CI 会拒绝
   已知的 Vista 之后静态导入；Vista 属于兼容目标，并非持续执行测试的系统。
-- 是否支持当前系统，取决于活动 `rdpwrap.ini` 中是否存在与
-  `termsrv.dll` **产品版本**完全一致的配置节。
+- 是否支持当前系统，取决于当前架构使用的 `rdpwrap.ini` 或
+  `rdpwrap-arm-kb.ini` 中是否存在与 `termsrv.dll` **产品版本**完全一致的配置节。
 - 发布流水线会构建 x86、x64、ARM32 和 ARM64 Wrapper。ARM 运行时支持仍属于
   实验功能，并使用独立的 `res/rdpwrap-arm-kb.ini`。聚合 Installer 会嵌入并选择
   全部四种 Wrapper 架构。
