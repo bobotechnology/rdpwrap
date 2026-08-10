@@ -21,11 +21,11 @@ BEGIN
         BLOCK "04090000"
         BEGIN
             VALUE "FileDescription", "RDP Wrapper Configuration"
-            VALUE "FileVersion", "@PROJECT_VERSION@.0"
+            VALUE "FileVersion", "@RDPWRAP_VERSION@"
             VALUE "InternalName", "RDP_CnC"
             VALUE "OriginalFilename", "RDP_CnC.exe"
             VALUE "ProductName", "RDP Wrapper"
-            VALUE "ProductVersion", "@PROJECT_VERSION@.0"
+            VALUE "ProductVersion", "@RDPWRAP_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

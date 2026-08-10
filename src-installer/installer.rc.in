@@ -29,12 +29,12 @@ BEGIN
         BLOCK "04090000"
         BEGIN
             VALUE "FileDescription", "RDP Wrapper Library Installer"
-            VALUE "FileVersion", "@PROJECT_VERSION@.0"
+            VALUE "FileVersion", "@RDPWRAP_VERSION@"
             VALUE "InternalName", "RDPWInst"
             VALUE "LegalCopyright", ""
             VALUE "OriginalFilename", "RDPWInst.exe"
             VALUE "ProductName", "RDP Host Support"
-            VALUE "ProductVersion", "@PROJECT_VERSION@.0"
+            VALUE "ProductVersion", "@RDPWRAP_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

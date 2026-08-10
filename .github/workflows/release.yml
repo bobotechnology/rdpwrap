@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: Semantic version component to increment
+        description: Version line to start after a stable release
         required: true
         default: patch
         type: choice
@@ -12,11 +12,16 @@ on:
           - patch
           - minor
           - major
-      prerelease:
-        description: Mark the GitHub Release as a prerelease
+      channel:
+        description: Release channel (bump is ignored while continuing or promoting a prerelease)
         required: true
-        default: false
-        type: boolean
+        default: stable
+        type: choice
+        options:
+          - stable
+          - alpha
+          - beta
+          - rc
 
 permissions:
   contents: write
@@ -42,37 +47,69 @@ jobs:
         shell: pwsh
         env:
           BUMP: ${{ inputs.bump }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
+          git fetch origin master --tags
+
           $text = (Get-Content -LiteralPath VERSION -Raw).Trim()
-          if ($text -notmatch '^(\d+)\.(\d+)\.(\d+)$') {
-            throw "VERSION is not semantic x.y.z: $text"
-          }
-          $latestTag = git tag --list 'v[0-9]*' --sort=-version:refname |
-            Select-Object -First 1
-          if ($latestTag) { $latestTag = $latestTag.Trim() }
-          if ($latestTag -and $latestTag -ne "v$text") {
-            throw "VERSION ($text) does not match latest tag ($latestTag)"
+          if ($text -notmatch '^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.([1-9]\d*))?$') {
+            throw "VERSION is not semantic x.y.z or x.y.z-(alpha|beta|rc).N: $text"
           }
           $major = [int]$Matches[1]
           $minor = [int]$Matches[2]
           $patch = [int]$Matches[3]
-          switch ($env:BUMP) {
-            'major' { $major++; $minor = 0; $patch = 0 }
-            'minor' { $minor++; $patch = 0 }
-            'patch' { $patch++ }
-            default { throw "Unsupported version bump: $env:BUMP" }
+          $currentChannel = if ($Matches[4]) { [string]$Matches[4] } else { '' }
+          $currentTag = "v$text"
+          git rev-parse --verify --quiet "refs/tags/$currentTag" *> $null
+          if ($LASTEXITCODE -ne 0) {
+            throw "VERSION ($text) does not match an existing release tag ($currentTag)"
           }
-          $next = "$major.$minor.$patch"
+
+          $channel = $env:CHANNEL
+          if ($channel -notin @('stable', 'alpha', 'beta', 'rc')) {
+            throw "Unsupported release channel: $channel"
+          }
+
+          if ($currentChannel) {
+            $base = "$major.$minor.$patch"
+            Write-Host "Continuing or promoting prerelease line $base; bump=$env:BUMP is ignored."
+          } else {
+            switch ($env:BUMP) {
+              'major' { $major++; $minor = 0; $patch = 0 }
+              'minor' { $minor++; $patch = 0 }
+              'patch' { $patch++ }
+              default { throw "Unsupported version bump: $env:BUMP" }
+            }
+            $base = "$major.$minor.$patch"
+          }
+
+          if ($channel -eq 'stable') {
+            $next = $base
+            $prerelease = 'false'
+          } else {
+            $prefix = "v$base-$channel."
+            $pattern = '^' + [regex]::Escape($prefix) + '([1-9]\d*)$'
+            $sequence = 0
+            foreach ($candidate in @(git tag --list "$prefix*")) {
+              if ($candidate -match $pattern) {
+                $sequence = [Math]::Max($sequence, [int]$Matches[1])
+              }
+            }
+            $next = "$base-$channel.$($sequence + 1)"
+            $prerelease = 'true'
+          }
+
           $tag = "v$next"
-          if (git rev-parse --verify --quiet "refs/tags/$tag") {
-            throw "Tag already exists: $tag"
-          }
+          git rev-parse --verify --quiet "refs/tags/$tag" *> $null
+          if ($LASTEXITCODE -eq 0) { throw "Tag already exists: $tag" }
+
           [IO.File]::WriteAllText(
             (Join-Path $env:GITHUB_WORKSPACE 'VERSION'),
             "$next`n",
             [Text.UTF8Encoding]::new($false))
           "version=$next" >> $env:GITHUB_OUTPUT
           "tag=$tag" >> $env:GITHUB_OUTPUT
+          "prerelease=$prerelease" >> $env:GITHUB_OUTPUT
           "base_sha=$(git rev-parse HEAD)" >> $env:GITHUB_OUTPUT
           Write-Host "Preparing $tag"
 
@@ -110,7 +147,7 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
           BASE_SHA: ${{ steps.version.outputs.base_sha }}
-          PRERELEASE: ${{ inputs.prerelease }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           git fetch origin master --tags
           $remote = (git rev-parse origin/master).Trim()

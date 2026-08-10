@@ -123,11 +123,16 @@ does not extract the x86/x64-only legacy system-component resources. The
 workflow also produces a native ARM32 `RDPWInst-arm32.exe`; the Win32 aggregate
 Installer remains the broadly compatible default on ARM64 Windows.
 
-The manually triggered `Publish release` workflow increments `VERSION` using a
-selected semantic-version component (`patch`, `minor`, or `major`), performs
-the same verified multi-architecture build, creates a ZIP plus SHA-256 file,
-commits the version, creates the matching `vX.Y.Z` tag, and publishes the
-GitHub Release with generated notes.
+The manually triggered `Publish release` workflow supports `stable`, `alpha`,
+`beta`, and `rc` channels. Starting from a stable release, select `patch`,
+`minor`, or `major` and a prerelease channel to publish tags such as
+`v1.8.8-beta.1`; rerunning the workflow with that prerelease checked out
+continues the same line as `beta.2`, `beta.3`, and so on. Select `stable` to
+promote the current prerelease line to its matching final tag (for example,
+`v1.8.8-beta.2` to `v1.8.8`) without skipping to `v1.8.9`. Every release
+commits the full version to `VERSION`, builds and verifies all architectures,
+creates a ZIP plus SHA-256 file, and publishes generated GitHub Release notes.
+Prereleases are not marked as Latest.
 
 ## Installer commands
 

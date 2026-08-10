@@ -18,11 +18,11 @@ BEGIN
         BLOCK "04090000"
         BEGIN
             VALUE "FileDescription", "RDP Wrapper Library"
-            VALUE "FileVersion", "@PROJECT_VERSION@.0"
+            VALUE "FileVersion", "@RDPWRAP_VERSION@"
             VALUE "InternalName", "rdpwrap"
             VALUE "OriginalFilename", "rdpwrap.dll"
             VALUE "ProductName", "RDP Wrapper"
-            VALUE "ProductVersion", "@PROJECT_VERSION@.0"
+            VALUE "ProductVersion", "@RDPWRAP_VERSION@"
         END
     END
     BLOCK "VarFileInfo"

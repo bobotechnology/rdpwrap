@@ -108,9 +108,13 @@ Wrapper 架构并上传产物。Win32 聚合 Installer 包含本次构建的 `RD
 x86/x64 的旧系统组件资源。工作流还会生成原生 ARM32 `RDPWInst-arm32.exe`；在 ARM64
 Windows 上仍以兼容范围更广的 Win32 聚合 Installer 作为默认选择。
 
-手动触发 `Publish release` 工作流时，可选择递增语义版本的 `patch`、`minor` 或
-`major`。工作流会执行同一套多架构构建与验证，生成 ZIP 和 SHA-256 文件，提交版本号、
-创建对应的 `vX.Y.Z` 标签，并发布带自动生成说明的 GitHub Release。
+手动触发 `Publish release` 工作流时，可选择 `stable`、`alpha`、`beta` 或 `rc`
+发行通道。当前为正式版时，选择 `patch`、`minor` 或 `major` 加预发行通道即可发布例如
+`v1.8.8-beta.1` 的版本；后续再次运行会自动递增为 `beta.2`、`beta.3` 等。选择
+`stable` 会把当前预发行线提升为对应正式标签，例如从 `v1.8.8-beta.2` 发布为
+`v1.8.8`，不会跳到 `v1.8.9`。每次发行都会把完整版本号提交到 `VERSION`，执行全架构
+构建与验证，生成 ZIP 和 SHA-256 文件，并发布带自动生成说明的 GitHub Release；预发行
+不会标记为 Latest。
 
 ## 安装器命令
 

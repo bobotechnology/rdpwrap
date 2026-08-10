@@ -369,7 +369,9 @@ static bool updateWrapperFirewallPort(int port) {
     return tcp && udp;
 }
 
-// Get file version
+// Get a display version. Prefer the StringFileInfo resource so wrapper
+// prereleases such as 1.8.8-rc.3 remain visible; fall back to the binary
+// VERSIONINFO fields for files that do not provide a version string.
 static std::wstring versionOf(const std::wstring& file, bool productVersion = false) {
     DWORD dummy = 0, n = GetFileVersionInfoSizeW(file.c_str(), &dummy);
     if (!n) return L"N/A";
@@ -377,13 +379,34 @@ static std::wstring versionOf(const std::wstring& file, bool productVersion = fa
     std::vector<BYTE> b(n);
     if (!GetFileVersionInfoW(file.c_str(), 0, n, b.data())) return L"N/A";
 
+    struct Translation { WORD language; WORD codepage; };
+    Translation* translations = nullptr;
+    UINT translationBytes = 0;
+    const wchar_t* field = productVersion ? L"ProductVersion" : L"FileVersion";
+    if (VerQueryValueW(b.data(), L"\\VarFileInfo\\Translation",
+            reinterpret_cast<void**>(&translations), &translationBytes) &&
+        translations && translationBytes >= sizeof(Translation)) {
+        const size_t count = translationBytes / sizeof(Translation);
+        for (size_t index = 0; index < count; ++index) {
+            wchar_t key[96]{};
+            swprintf_s(key, L"\\StringFileInfo\\%04x%04x\\%s",
+                translations[index].language, translations[index].codepage, field);
+            wchar_t* value = nullptr;
+            UINT characters = 0;
+            if (VerQueryValueW(b.data(), key, reinterpret_cast<void**>(&value),
+                    &characters) && value && value[0])
+                return value;
+        }
+    }
+
     VS_FIXEDFILEINFO* f = nullptr;
     UINT len = 0;
-    if (!VerQueryValueW(b.data(), L"\\", (void**)&f, &len) || !f || len < sizeof(VS_FIXEDFILEINFO) || f->dwSignature != VS_FFI_SIGNATURE)
+    if (!VerQueryValueW(b.data(), L"\\", reinterpret_cast<void**>(&f), &len) ||
+        !f || len < sizeof(VS_FIXEDFILEINFO) || f->dwSignature != VS_FFI_SIGNATURE)
         return L"N/A";
 
-    DWORD ms = productVersion ? f->dwProductVersionMS : f->dwFileVersionMS;
-    DWORD ls = productVersion ? f->dwProductVersionLS : f->dwFileVersionLS;
+    const DWORD ms = productVersion ? f->dwProductVersionMS : f->dwFileVersionMS;
+    const DWORD ls = productVersion ? f->dwProductVersionLS : f->dwFileVersionLS;
     wchar_t s[64];
     swprintf_s(s, L"%u.%u.%u.%u", HIWORD(ms), LOWORD(ms), HIWORD(ls), LOWORD(ls));
     return s;
