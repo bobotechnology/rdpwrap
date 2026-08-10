@@ -889,7 +889,8 @@ bool deleteFiles() {
     const std::wstring folder = parentPath(dll);
     bool ok = true;
     for (const std::wstring& file : {
-            joinPath(folder, configurationFileName()), dll,
+            joinPath(folder, configurationFileName()),
+            joinPath(folder, L"rdpwrap.txt"), dll,
             expandPath(L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe")}) {
         if (!pathExists(file)) continue;
         if (DeleteFileW(file.c_str()))
