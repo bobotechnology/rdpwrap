@@ -37,8 +37,7 @@ constexpr DWORD kNetworkTimeoutMs = 15000;
 constexpr DWORD kServiceTimeoutMs = 30000;
 constexpr wchar_t kConsolePidArgument[] = L"--rdpw-console-pid=";
 constexpr wchar_t kOutputPipeArgument[] = L"--rdpw-output-pipe=";
-constexpr wchar_t kRunBatchArgument[] = L"--rdpw-run-batch";
-constexpr wchar_t kElevatedBatchEnvironment[] = L"RDPW_BATCH_ELEVATED";
+constexpr wchar_t kUpdaterTaskName[] = L"RDPWUpdater";
 
 struct FileVersion {
     WORD major = 0;
@@ -561,6 +560,63 @@ bool execWait(const std::wstring& commandLine, bool reportFailure = true) {
     if (!ok && reportFailure)
         std::wcout << L"[-] Command failed (exit code " << exitCode << L").\n";
     return ok;
+}
+
+std::wstring installedInstallerPath() {
+    return expandPath(L"%ProgramFiles%\\RDP Wrapper\\RDPWInst.exe");
+}
+
+bool deployUpdater() {
+    const std::wstring source = executablePath();
+    const std::wstring destination = installedInstallerPath();
+    const std::wstring folder = parentPath(destination);
+    if (!directoryExists(folder)) {
+        const int result = SHCreateDirectoryExW(nullptr, folder.c_str(), nullptr);
+        if (result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS &&
+            result != ERROR_FILE_EXISTS) {
+            std::wcout << L"[-] Failed to create updater directory (code "
+                       << result << L").\n";
+            return false;
+        }
+    }
+    if (!samePath(source, destination) &&
+        !CopyFileW(source.c_str(), destination.c_str(), FALSE)) {
+        std::wcout << L"[-] Failed to deploy updater executable (code "
+                   << GetLastError() << L").\n";
+        return false;
+    }
+
+    const std::wstring schtasks =
+        L"\"" + expandPath(L"%SystemRoot%\\System32\\schtasks.exe") + L"\"";
+    const std::wstring command = schtasks +
+        L" /CREATE /F /SC ONSTART /DELAY 0002:00 /TN \"" + kUpdaterTaskName +
+        L"\" /TR \"\\\"" + destination +
+        L"\\\" -w\" /RL HIGHEST /RU SYSTEM /NP";
+    if (execWait(command)) return true;
+
+    if (!samePath(source, destination)) DeleteFileW(destination.c_str());
+    return false;
+}
+
+void removeUpdater() {
+    const std::wstring schtasks =
+        L"\"" + expandPath(L"%SystemRoot%\\System32\\schtasks.exe") + L"\"";
+    execWait(schtasks + L" /DELETE /TN \"" + kUpdaterTaskName + L"\" /F", false);
+
+    const std::wstring path = installedInstallerPath();
+    const std::wstring folder = parentPath(path);
+    if (pathExists(path)) {
+        if (samePath(path, executablePath())) {
+            if (!MoveFileExW(path.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT))
+                std::wcout << L"[-] Failed to schedule updater removal (code "
+                           << GetLastError() << L").\n";
+        } else if (!DeleteFileW(path.c_str())) {
+            std::wcout << L"[-] Failed to remove updater executable (code "
+                       << GetLastError() << L").\n";
+        }
+    }
+    if (!RemoveDirectoryW(folder.c_str()) && samePath(path, executablePath()))
+        MoveFileExW(folder.c_str(), nullptr, MOVEFILE_DELAY_UNTIL_REBOOT);
 }
 
 void setWrapperDll() {
@@ -1316,64 +1372,7 @@ std::wstring quoteArgument(const std::wstring& argument) {
     return quoted;
 }
 
-int runElevatedBatch(const std::wstring& path) {
-    const DWORD attributes = GetFileAttributesW(path.c_str());
-    if (attributes == INVALID_FILE_ATTRIBUTES ||
-        (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
-        return ERROR_FILE_NOT_FOUND;
-    if (!samePath(parentPath(path), parentPath(executablePath())))
-        return ERROR_ACCESS_DENIED;
-
-    const size_t separator = path.find_last_of(L"\\/");
-    const std::wstring name = separator == std::wstring::npos
-        ? path : path.substr(separator + 1);
-    bool allowed = false;
-    for (const wchar_t* candidate : {
-            L"install.bat", L"update.bat", L"uninstall.bat",
-            L"install-arm32.bat", L"update-arm32.bat",
-            L"uninstall-arm32.bat"}) {
-        if (_wcsicmp(name.c_str(), candidate) == 0) {
-            allowed = true;
-            break;
-        }
-    }
-    if (!allowed) return ERROR_ACCESS_DENIED;
-
-    wchar_t commandInterpreter[MAX_PATH]{};
-    DWORD length = GetEnvironmentVariableW(
-        L"ComSpec", commandInterpreter, static_cast<DWORD>(std::size(commandInterpreter)));
-    if (!length || length >= std::size(commandInterpreter)) {
-        const std::wstring fallback = expandPath(L"%SystemRoot%\\System32\\cmd.exe");
-        if (fallback.size() >= std::size(commandInterpreter)) return ERROR_BUFFER_OVERFLOW;
-        std::copy(fallback.begin(), fallback.end(), commandInterpreter);
-        commandInterpreter[fallback.size()] = L'\0';
-    }
-
-    std::wstring commandLine = quoteArgument(commandInterpreter);
-    commandLine += L" /d /c call ";
-    commandLine += quoteArgument(path);
-    SetEnvironmentVariableW(kElevatedBatchEnvironment, L"1");
-    STARTUPINFOW startup{};
-    startup.cb = sizeof(startup);
-    PROCESS_INFORMATION process{};
-    const BOOL created = CreateProcessW(commandInterpreter, commandLine.data(),
-        nullptr, nullptr, TRUE, 0, nullptr, parentPath(path).c_str(),
-        &startup, &process);
-    const DWORD createError = created ? ERROR_SUCCESS : GetLastError();
-    SetEnvironmentVariableW(kElevatedBatchEnvironment, nullptr);
-    if (!created) return static_cast<int>(createError);
-
-    CloseHandle(process.hThread);
-    const DWORD waitResult = WaitForSingleObject(process.hProcess, INFINITE);
-    DWORD exitCode = ERROR_GEN_FAILURE;
-    if (waitResult != WAIT_OBJECT_0 ||
-        !GetExitCodeProcess(process.hProcess, &exitCode))
-        exitCode = GetLastError();
-    CloseHandle(process.hProcess);
-    return static_cast<int>(exitCode);
-}
-
-int relaunchElevated(int argc, wchar_t* argv[], bool relayOutput = true) {
+int relaunchElevated(int argc, wchar_t* argv[]) {
     GUID pipeId{};
     wchar_t pipeIdText[40]{};
     const std::wstring pipeSuffix = SUCCEEDED(CoCreateGuid(&pipeId)) &&
@@ -1381,12 +1380,10 @@ int relaunchElevated(int argc, wchar_t* argv[], bool relayOutput = true) {
         ? std::wstring(pipeIdText) : std::to_wstring(GetTickCount64());
     const std::wstring pipeName = L"\\\\.\\pipe\\RDPWInst-" +
         std::to_wstring(GetCurrentProcessId()) + L"-" + pipeSuffix;
-    HANDLE outputPipe = relayOutput
-        ? CreateNamedPipeW(pipeName.c_str(),
-            PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-            1, 65536, 65536, 0, nullptr)
-        : INVALID_HANDLE_VALUE;
+    HANDLE outputPipe = CreateNamedPipeW(pipeName.c_str(),
+        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+        1, 65536, 65536, 0, nullptr);
 
     std::wstring parameters;
     for (int index = 1; index < argc; ++index) {
@@ -1521,14 +1518,7 @@ int wmain(int argc, wchar_t* argv[]) {
 
         // Keep the manifest asInvoker so Windows can preserve the caller's
         // console, then elevate every invocation through the same runas path.
-        const bool runBatch = argc > 1 &&
-            std::wstring(argv[1]) == kRunBatchArgument;
-        if (!isProcessElevated())
-            return relaunchElevated(argc, argv, !runBatch);
-        if (runBatch) {
-            if (argc != 3 || !argv[2][0]) return ERROR_INVALID_PARAMETER;
-            return runElevatedBatch(argv[2]);
-        }
+        if (!isProcessElevated()) return relaunchElevated(argc, argv);
         if (argc < 2) { printBanner(); usage(); return 0; }
         std::wstring command = argv[1];
         if (command != L"-l" && command != L"-i" && command != L"-w" &&
@@ -1615,6 +1605,11 @@ int wmain(int argc, wchar_t* argv[]) {
                 }
                 std::rethrow_exception(failure);
             }
+            std::wcout << L"[*] Deploying automatic updater...\n";
+            if (!deployUpdater()) {
+                std::wcout << L"[!] Wrapper installed, but automatic updater deployment failed.\n";
+                halt(ERROR_ACCESS_DENIED);
+            }
             std::wcout << L"[+] Successfully installed.\n";
         } else if (command == L"-u") {
             if (!installed) { std::wcout << L"[*] RDP Wrapper Library is not installed.\n"; halt(ERROR_INVALID_FUNCTION); }
@@ -1642,6 +1637,8 @@ int wmain(int argc, wchar_t* argv[]) {
             }
             if (!filesRemoved) halt(ERROR_ACCESS_DENIED);
             if (!servicesRestarted) halt(ERROR_SERVICE_REQUEST_TIMEOUT);
+            std::wcout << L"[*] Removing automatic updater...\n";
+            removeUpdater();
             std::wcout << L"[+] Successfully uninstalled.\n";
         } else if (command == L"-w") {
             if (!installed) { std::wcout << L"[*] RDP Wrapper Library is not installed.\n"; halt(ERROR_INVALID_FUNCTION); }

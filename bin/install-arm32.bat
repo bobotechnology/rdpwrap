@@ -1,23 +1,9 @@
 @echo off
 setlocal
 if not exist "%~dp0RDPWInst-arm32.exe" goto :error
-if "%RDPW_BATCH_ELEVATED%"=="1" goto :elevated
-"%~dp0RDPWInst-arm32.exe" --rdpw-run-batch "%~f0"
-set "RDPW_RESULT=%errorlevel%"
-if "%RDPW_RESULT%"=="0" if exist "%~dp0RDP_CnC.exe" start "" "%~dp0RDP_CnC.exe"
-exit /b %RDPW_RESULT%
-
-:elevated
-set "RDPW_BATCH_ELEVATED="
 "%~dp0RDPWInst-arm32.exe" -i -o
 if errorlevel 1 goto :install_failed
-
-copy /y "%~dp0RDPWInst-arm32.exe" "%ProgramFiles%\RDP Wrapper\RDPWInst.exe" >nul
-if errorlevel 1 goto :copy_failed
-
-SCHTASKS /CREATE /F /SC ONSTART /DELAY 0002:00 /TN "RDPWUpdater" /TR "\"%ProgramFiles%\RDP Wrapper\RDPWInst.exe\" -w" /RL HIGHEST /RU SYSTEM /NP
-if errorlevel 1 goto :task_failed
-
+if exist "%~dp0RDP_CnC.exe" start "" "%~dp0RDP_CnC.exe"
 pause
 exit /b 0
 
@@ -25,16 +11,8 @@ exit /b 0
 echo [-] RDP Wrapper ARM32 installation failed.
 pause
 exit /b 1
-:copy_failed
-echo [-] Installed, but failed to deploy the ARM32 updater executable.
-pause
-exit /b 2
-:task_failed
-echo [-] Installed, but failed to create the RDPWUpdater scheduled task.
-pause
-exit /b 3
 :error
 echo [-] ARM32 Installer executable not found.
 echo Please extract all files from the downloaded package or check your anti-virus.
 pause
-exit /b 4
+exit /b 2

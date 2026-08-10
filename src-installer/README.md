@@ -59,3 +59,6 @@ See `RDPWInst.exe` without arguments for the full usage text.
 - Firewall rules use the installer-owned names `RDP Wrapper TCP 3389` and
   `RDP Wrapper UDP 3389`, avoiding modification of Windows' generic
   `Remote Desktop` rules.
+- Installation and uninstallation deploy or remove the updater executable and
+  its scheduled task from the elevated Installer process; the companion BAT
+  files do not launch a nested elevated `cmd.exe`.
