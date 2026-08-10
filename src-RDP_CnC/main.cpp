@@ -369,35 +369,14 @@ static bool updateWrapperFirewallPort(int port) {
     return tcp && udp;
 }
 
-// Get a display version. Prefer the StringFileInfo resource so wrapper
-// prereleases such as 1.8.8-rc.3 remain visible; fall back to the binary
-// VERSIONINFO fields for files that do not provide a version string.
+// Get the numeric VERSIONINFO value. This is used for termsrv.dll because
+// supportLevel() matches it against numeric INI section names.
 static std::wstring versionOf(const std::wstring& file, bool productVersion = false) {
     DWORD dummy = 0, n = GetFileVersionInfoSizeW(file.c_str(), &dummy);
     if (!n) return L"N/A";
 
     std::vector<BYTE> b(n);
     if (!GetFileVersionInfoW(file.c_str(), 0, n, b.data())) return L"N/A";
-
-    struct Translation { WORD language; WORD codepage; };
-    Translation* translations = nullptr;
-    UINT translationBytes = 0;
-    const wchar_t* field = productVersion ? L"ProductVersion" : L"FileVersion";
-    if (VerQueryValueW(b.data(), L"\\VarFileInfo\\Translation",
-            reinterpret_cast<void**>(&translations), &translationBytes) &&
-        translations && translationBytes >= sizeof(Translation)) {
-        const size_t count = translationBytes / sizeof(Translation);
-        for (size_t index = 0; index < count; ++index) {
-            wchar_t key[96]{};
-            swprintf_s(key, L"\\StringFileInfo\\%04x%04x\\%s",
-                translations[index].language, translations[index].codepage, field);
-            wchar_t* value = nullptr;
-            UINT characters = 0;
-            if (VerQueryValueW(b.data(), key, reinterpret_cast<void**>(&value),
-                    &characters) && value && value[0])
-                return value;
-        }
-    }
 
     VS_FIXEDFILEINFO* f = nullptr;
     UINT len = 0;
@@ -410,6 +389,42 @@ static std::wstring versionOf(const std::wstring& file, bool productVersion = fa
     wchar_t s[64];
     swprintf_s(s, L"%u.%u.%u.%u", HIWORD(ms), LOWORD(ms), HIWORD(ls), LOWORD(ls));
     return s;
+}
+
+// Read rdpwrap.dll's display version from StringFileInfo so SemVer prerelease
+// labels survive. An empty result lets the caller use the numeric fallback.
+static std::wstring wrapperStringVersionOf(const std::wstring& file) {
+    DWORD dummy = 0, n = GetFileVersionInfoSizeW(file.c_str(), &dummy);
+    if (!n) return {};
+
+    std::vector<BYTE> b(n);
+    if (!GetFileVersionInfoW(file.c_str(), 0, n, b.data())) return {};
+
+    struct Translation { WORD language; WORD codepage; };
+    Translation* translations = nullptr;
+    UINT translationBytes = 0;
+    if (!VerQueryValueW(b.data(), L"\\VarFileInfo\\Translation",
+            reinterpret_cast<void**>(&translations), &translationBytes) ||
+        !translations || translationBytes < sizeof(Translation))
+        return {};
+
+    const size_t count = translationBytes / sizeof(Translation);
+    for (size_t index = 0; index < count; ++index) {
+        wchar_t key[96]{};
+        swprintf_s(key, L"\\StringFileInfo\\%04x%04x\\FileVersion",
+            translations[index].language, translations[index].codepage);
+        wchar_t* value = nullptr;
+        UINT characters = 0;
+        if (VerQueryValueW(b.data(), key, reinterpret_cast<void**>(&value),
+                &characters) && value && value[0])
+            return value;
+    }
+    return {};
+}
+
+static std::wstring wrapperVersionOf(const std::wstring& file) {
+    const std::wstring version = wrapperStringVersionOf(file);
+    return version.empty() ? versionOf(file) : version;
 }
 
 // Get service state
@@ -624,7 +639,7 @@ static void status() {
     SetWindowTextW(GetDlgItem(g_hwnd, IDC_LISTENER), listening ? tr(L"Listening", L"正在监听") : tr(L"Not listening", L"未监听"));
     setStatusColor(IDC_LISTENER, listening ? RGB(0, 150, 0) : RGB(190, 0, 0));
 
-    std::wstring wrapVer = p.empty() ? L"N/A" : versionOf(p);
+    std::wstring wrapVer = p.empty() ? L"N/A" : wrapperVersionOf(p);
     std::wstring tsVer = versionOf(expandEnv(L"%SystemRoot%\\System32\\termsrv.dll"), true);
 
     if (g_chinese && wrapVer == L"N/A") wrapVer = L"无法获取";
