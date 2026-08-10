@@ -60,8 +60,8 @@ to the original project.
 - Actual `termsrv.dll` support depends on whether the active `rdpwrap.ini`
   contains the exact Windows product-version section.
 - The release pipeline builds x86, x64, ARM32, and ARM64 wrappers. ARM runtime
-  support remains experimental and uses the separate `res/rdpwrap-arm-kb.ini`;
-  the aggregate Installer currently installs x86/x64 payloads only.
+  support remains experimental and uses the separate `res/rdpwrap-arm-kb.ini`.
+  The aggregate Installer embeds and selects all four wrapper architectures.
 
 Before installation, restore an original Microsoft `termsrv.dll` if another
 patcher modified it. Create a restore point or other recovery path before
@@ -97,20 +97,23 @@ Outputs are written below the build directory's `bin` folder. A native x64
 build embeds its freshly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
 `res/rdpwrap.ini` into `RDPWInst.exe`.
 
-A Win32 installer can run on both x86 and x64 Windows and therefore needs both
-wrapper architectures. Build the x64 DLL separately and provide it when
-configuring the Win32 aggregate installer:
+A Win32 aggregate Installer can run under the native or emulation layer on the
+supported Windows architectures. Build the other wrappers separately and
+provide them when configuring it:
 
 ```powershell
 cmake -S . -B build-msvc32 -A Win32 `
-  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
+  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll `
+  -DINSTALLER_RDPWARM=C:/path/to/arm32/rdpwrap.dll `
+  -DINSTALLER_RDPWARM64=C:/path/to/arm64/rdpwrap.dll
 cmake --build build-msvc32 --config Release --parallel
 ```
 
 The `Build MSVC release` GitHub Actions workflow builds all four wrapper
 architectures and uploads them on every push and pull request. Its Win32
-installer contains the freshly built `RDPW32` and `RDPW64` payloads; the ARM
-DLLs and `rdpwrap-arm-kb.ini` are included as separate experimental artifacts.
+aggregate Installer contains the freshly built `RDPW32`, `RDPW64`, `RDPWARM`,
+and `RDPWARM64` payloads. On ARM systems it selects `rdpwrap-arm-kb.ini` and
+does not extract the x86/x64-only legacy system-component resources.
 
 ## Installer commands
 

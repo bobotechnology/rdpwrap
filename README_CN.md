@@ -54,8 +54,8 @@ Stas'M Corp.、binarymaster、kost、原项目贡献者及 RDP Wrapper 社区。
 - 是否支持当前系统，取决于活动 `rdpwrap.ini` 中是否存在与
   `termsrv.dll` **产品版本**完全一致的配置节。
 - 发布流水线会构建 x86、x64、ARM32 和 ARM64 Wrapper。ARM 运行时支持仍属于
-  实验功能，并使用独立的 `res/rdpwrap-arm-kb.ini`；聚合 Installer 当前仍只安装
-  x86/x64 Payload。
+  实验功能，并使用独立的 `res/rdpwrap-arm-kb.ini`。聚合 Installer 会嵌入并选择
+  全部四种 Wrapper 架构。
 
 如果此前使用其他工具修改过 `termsrv.dll`，请先恢复 Microsoft 原始文件。
 修改远程访问配置前建议创建还原点或其他恢复方式；如果机器只能通过 RDP
@@ -87,18 +87,21 @@ MSVC 会直接链接旧 Delphi `resource.res`。随后由一个 MSVC 构建的�
 产物位于构建目录的 `bin` 子目录。原生 x64 构建会把刚构建的 x64
 `rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入 `RDPWInst.exe`。
 
-Win32 安装器可以运行在 x86 和 x64 Windows 上，因此发布包需要同时包含两种架构的
-Wrapper。请先单独构建 x64 DLL，再配置 Win32 聚合安装器：
+Win32 聚合 Installer 可通过原生或模拟层运行在支持的 Windows 架构上。请先单独构建
+其他架构的 Wrapper，再配置聚合安装器：
 
 ```powershell
 cmake -S . -B build-msvc32 -A Win32 `
-  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll
+  -DINSTALLER_RDPW64=C:/path/to/x64/rdpwrap.dll `
+  -DINSTALLER_RDPWARM=C:/path/to/arm32/rdpwrap.dll `
+  -DINSTALLER_RDPWARM64=C:/path/to/arm64/rdpwrap.dll
 cmake --build build-msvc32 --config Release --parallel
 ```
 
 `Build MSVC release` GitHub Actions 工作流会在每次 push 和 pull request 时构建全部四种
-Wrapper 架构并上传产物。Win32 安装器包含本次构建的 `RDPW32` 和 `RDPW64`；ARM DLL 和
-`rdpwrap-arm-kb.ini` 则作为独立的实验性产物提供。
+Wrapper 架构并上传产物。Win32 聚合 Installer 包含本次构建的 `RDPW32`、`RDPW64`、
+`RDPWARM` 和 `RDPWARM64`。在 ARM 系统上会选择 `rdpwrap-arm-kb.ini`，并跳过仅适用于
+x86/x64 的旧系统组件资源。
 
 ## 安装器命令
 

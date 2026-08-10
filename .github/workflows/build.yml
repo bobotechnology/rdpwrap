@@ -44,11 +44,17 @@ jobs:
         shell: pwsh
         run: |
           $rdpw64 = Join-Path $env:GITHUB_WORKSPACE "build-x64/bin/Release/rdpwrap.dll"
-          if (-not (Test-Path -LiteralPath $rdpw64)) {
-            throw "Missing x64 wrapper: $rdpw64"
+          $rdpwArm = Join-Path $env:GITHUB_WORKSPACE "build-arm32/bin/Release/rdpwrap.dll"
+          $rdpwArm64 = Join-Path $env:GITHUB_WORKSPACE "build-arm64/bin/Release/rdpwrap.dll"
+          foreach ($wrapper in $rdpw64,$rdpwArm,$rdpwArm64) {
+            if (-not (Test-Path -LiteralPath $wrapper)) {
+              throw "Missing wrapper: $wrapper"
+            }
           }
           cmake -S . -B build-x86 -G "Visual Studio 17 2022" -A Win32 `
-            "-DINSTALLER_RDPW64=$rdpw64"
+            "-DINSTALLER_RDPW64=$rdpw64" `
+            "-DINSTALLER_RDPWARM=$rdpwArm" `
+            "-DINSTALLER_RDPWARM64=$rdpwArm64"
           cmake --build build-x86 --config Release --target RDPWInst --parallel
 
       - name: Assemble release artifact

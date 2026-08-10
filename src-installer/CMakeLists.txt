@@ -12,34 +12,47 @@ endif()
 # second, silently ageing copy inside the Delphi .res container.
 set(INSTALLER_CONFIG_INI "${CMAKE_CURRENT_SOURCE_DIR}/../res/rdpwrap.ini"
     CACHE FILEPATH "INI file embedded as the installer's CONFIG resource")
+set(INSTALLER_CONFIG_ARM_INI "${CMAKE_CURRENT_SOURCE_DIR}/../res/rdpwrap-arm-kb.ini"
+    CACHE FILEPATH "ARM INI file embedded as the installer's CONFIG_ARM resource")
 if(NOT EXISTS "${INSTALLER_CONFIG_INI}")
   message(FATAL_ERROR "Installer CONFIG INI not found: ${INSTALLER_CONFIG_INI}")
+endif()
+if(NOT EXISTS "${INSTALLER_CONFIG_ARM_INI}")
+  message(FATAL_ERROR "Installer ARM CONFIG INI not found: ${INSTALLER_CONFIG_ARM_INI}")
 endif()
 
 set(INSTALLER_RDPW32 "" CACHE FILEPATH "Optional x86 rdpwrap.dll embedded as RDPW32")
 set(INSTALLER_RDPW64 "" CACHE FILEPATH "Optional x64 rdpwrap.dll embedded as RDPW64")
+set(INSTALLER_RDPWARM "" CACHE FILEPATH "Optional ARM32 rdpwrap.dll embedded as RDPWARM")
+set(INSTALLER_RDPWARM64 "" CACHE FILEPATH "Optional ARM64 rdpwrap.dll embedded as RDPWARM64")
 set(INSTALLER_RDP_CNC "" CACHE FILEPATH "Optional RDP_CnC.exe embedded as RDP_CNC")
 
-# In the repository build, embed the binaries produced by this same build.
-# A native x64 installer only runs on x64 Windows, so replacing RDPW64 makes
-# that artifact internally consistent.  A Win32 aggregate release can supply
-# INSTALLER_RDPW64 from a separate x64 build.
+# In the repository build, embed the native Wrapper and RDP_CnC produced by
+# this build. A Win32 aggregate release supplies the other three Wrappers from
+# separate cross-architecture builds.
 if(NOT PROJECT_IS_TOP_LEVEL)
   set(INSTALLER_RDP_CNC "$<TARGET_FILE:RDP_CnC>")
-  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
+    set(INSTALLER_RDPWARM64 "$<TARGET_FILE:rdpwrap>")
+  elseif(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM")
+    set(INSTALLER_RDPWARM "$<TARGET_FILE:rdpwrap>")
+  elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
     set(INSTALLER_RDPW64 "$<TARGET_FILE:rdpwrap>")
   else()
     set(INSTALLER_RDPW32 "$<TARGET_FILE:rdpwrap>")
-    if(INSTALLER_RDPW64 STREQUAL "")
+    if(INSTALLER_RDPW64 STREQUAL "" OR INSTALLER_RDPWARM STREQUAL "" OR
+       INSTALLER_RDPWARM64 STREQUAL "")
       message(WARNING
-        "Win32 RDPWInst will retain the legacy embedded x64 wrapper. "
-        "Set INSTALLER_RDPW64 to an x64 rdpwrap.dll for an aggregate release.")
+        "Win32 RDPWInst is missing one or more cross-architecture Wrappers. "
+        "Set INSTALLER_RDPW64, INSTALLER_RDPWARM, and INSTALLER_RDPWARM64 "
+        "for a complete aggregate release.")
     endif()
   endif()
 endif()
 
-set(RESOURCE_REPLACEMENT_DEPENDS "${INSTALLER_CONFIG_INI}")
-foreach(resource_name IN ITEMS RDPW32 RDPW64 RDP_CNC)
+set(RESOURCE_REPLACEMENT_DEPENDS
+  "${INSTALLER_CONFIG_INI}" "${INSTALLER_CONFIG_ARM_INI}")
+foreach(resource_name IN ITEMS RDPW32 RDPW64 RDPWARM RDPWARM64 RDP_CNC)
   if(NOT "${INSTALLER_${resource_name}}" STREQUAL "")
     list(APPEND RESOURCE_REPLACEMENT_DEPENDS "${INSTALLER_${resource_name}}")
   endif()
@@ -80,8 +93,11 @@ add_custom_command(TARGET RDPWInst POST_BUILD
           "$<TARGET_FILE:RDPWInst>"
           "${APP_MANIFEST}"
           "${INSTALLER_CONFIG_INI}"
+          "${INSTALLER_CONFIG_ARM_INI}"
           "${INSTALLER_RDPW32}"
           "${INSTALLER_RDPW64}"
+          "${INSTALLER_RDPWARM}"
+          "${INSTALLER_RDPWARM64}"
           "${INSTALLER_RDP_CNC}"
   VERBATIM
   COMMENT "Updating installer payloads and asInvoker manifest"

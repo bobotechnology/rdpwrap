@@ -26,8 +26,8 @@ bool replaceResource(HANDLE update, const wchar_t* type, const wchar_t* name,
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    // target.exe manifest config rdpw32 rdpw64 rdp_cnc
-    if (argc != 7) return 1;
+    // target.exe manifest config config_arm rdpw32 rdpw64 rdpwarm rdpwarm64 rdp_cnc
+    if (argc != 10) return 1;
 
     HANDLE update = BeginUpdateResourceW(argv[1], FALSE);
     if (update == nullptr) return 2;
@@ -37,12 +37,14 @@ int wmain(int argc, wchar_t** argv) {
     ok = replaceResource(update, RT_MANIFEST, MAKEINTRESOURCEW(1), argv[2],
                          MAKELANGID(LANG_ENGLISH, SUBLANG_ENGLISH_US)) && ok;
     ok = replaceResource(update, RT_RCDATA, L"CONFIG", argv[3], neutral) && ok;
+    ok = replaceResource(update, RT_RCDATA, L"CONFIG_ARM", argv[4], neutral) && ok;
 
-    constexpr const wchar_t* names[] = {L"RDPW32", L"RDPW64", L"RDP_CNC"};
-    for (int index = 0; index < 3; ++index) {
-        if (argv[index + 4][0] != L'\0') {
+    constexpr const wchar_t* names[] = {
+        L"RDPW32", L"RDPW64", L"RDPWARM", L"RDPWARM64", L"RDP_CNC"};
+    for (int index = 0; index < 5; ++index) {
+        if (argv[index + 5][0] != L'\0') {
             ok = replaceResource(update, RT_RCDATA, names[index],
-                                 argv[index + 4], neutral) && ok;
+                                 argv[index + 5], neutral) && ok;
         }
     }
 

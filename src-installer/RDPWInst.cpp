@@ -32,6 +32,8 @@ namespace {
 
 constexpr wchar_t kTermService[] = L"TermService";
 constexpr wchar_t kDefaultIniUrl[] = L"https://api.rpyf.top/rdpwrap.ini";
+constexpr wchar_t kDefaultArmIniUrl[] =
+    L"https://raw.githubusercontent.com/bobotechnology/rdpwrap/master/res/rdpwrap-arm-kb.ini";
 constexpr size_t kMaximumIniBytes = 16 * 1024 * 1024;
 constexpr DWORD kNetworkTimeoutMs = 15000;
 constexpr DWORD kServiceTimeoutMs = 30000;
@@ -49,16 +51,48 @@ struct ExitCode final {
     DWORD value;
 };
 
+enum class NativeArchitecture {
+    Unknown,
+    X86,
+    X64,
+    Arm32,
+    Arm64,
+};
+
 bool installed = false;
 bool online = false;
 std::string onlineIniContent;
 BYTE arch = 0;
+NativeArchitecture nativeArchitecture = NativeArchitecture::Unknown;
 PVOID oldWow64RedirectionValue = nullptr;
 std::wstring wrapPath;
 std::wstring termServicePath;
 FileVersion fileVersion;
 DWORD termServicePid = 0;
 std::vector<std::wstring> sharedServices;
+
+bool isArmArchitecture() {
+    return nativeArchitecture == NativeArchitecture::Arm32 ||
+           nativeArchitecture == NativeArchitecture::Arm64;
+}
+
+const wchar_t* configurationFileName() {
+    return isArmArchitecture() ? L"rdpwrap-arm-kb.ini" : L"rdpwrap.ini";
+}
+
+const wchar_t* configurationResourceName() {
+    return isArmArchitecture() ? L"CONFIG_ARM" : L"CONFIG";
+}
+
+const wchar_t* wrapperResourceName() {
+    switch (nativeArchitecture) {
+    case NativeArchitecture::X86: return L"RDPW32";
+    case NativeArchitecture::X64: return L"RDPW64";
+    case NativeArchitecture::Arm32: return L"RDPWARM";
+    case NativeArchitecture::Arm64: return L"RDPWARM64";
+    default: return L"";
+    }
+}
 
 template <typename Function>
 Function loadFunction(HMODULE module, const char* name) {
@@ -189,15 +223,50 @@ bool writeRegistryDword(const wchar_t* key, const wchar_t* name, DWORD value) {
     return writeRegistryValue(key, name, REG_DWORD, &value, sizeof(value));
 }
 
-bool supportedArchitecture() {
-    SYSTEM_INFO info{};
-    GetNativeSystemInfo(&info);
-    switch (info.wProcessorArchitecture) {
-    case PROCESSOR_ARCHITECTURE_INTEL: arch = 32; return true;
-    case PROCESSOR_ARCHITECTURE_AMD64: arch = 64; return true;
-    case PROCESSOR_ARCHITECTURE_IA64: arch = 64; return false;
-    default: arch = 0; return false;
+NativeArchitecture architectureFromMachine(USHORT machine) {
+    switch (machine) {
+    case IMAGE_FILE_MACHINE_I386: return NativeArchitecture::X86;
+    case IMAGE_FILE_MACHINE_AMD64: return NativeArchitecture::X64;
+    case IMAGE_FILE_MACHINE_ARMNT: return NativeArchitecture::Arm32;
+    case IMAGE_FILE_MACHINE_ARM64: return NativeArchitecture::Arm64;
+    default: return NativeArchitecture::Unknown;
     }
+}
+
+NativeArchitecture architectureFromProcessor(WORD processorArchitecture) {
+    switch (processorArchitecture) {
+    case PROCESSOR_ARCHITECTURE_INTEL: return NativeArchitecture::X86;
+    case PROCESSOR_ARCHITECTURE_AMD64: return NativeArchitecture::X64;
+    case PROCESSOR_ARCHITECTURE_ARM: return NativeArchitecture::Arm32;
+    case PROCESSOR_ARCHITECTURE_ARM64: return NativeArchitecture::Arm64;
+    default: return NativeArchitecture::Unknown;
+    }
+}
+
+bool supportedArchitecture() {
+    // GetNativeSystemInfo can report the emulated architecture to an x86/x64
+    // process on ARM64. IsWow64Process2 reports the actual host machine.
+    using IsWow64Process2Function = BOOL(WINAPI*)(HANDLE, USHORT*, USHORT*);
+    const auto isWow64Process2 = loadFunction<IsWow64Process2Function>(
+        GetModuleHandleW(L"kernel32.dll"), "IsWow64Process2");
+    if (isWow64Process2) {
+        USHORT processMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+        USHORT nativeMachine = IMAGE_FILE_MACHINE_UNKNOWN;
+        if (isWow64Process2(GetCurrentProcess(), &processMachine, &nativeMachine))
+            nativeArchitecture = architectureFromMachine(nativeMachine);
+    }
+
+    if (nativeArchitecture == NativeArchitecture::Unknown) {
+        SYSTEM_INFO info{};
+        GetNativeSystemInfo(&info);
+        nativeArchitecture = architectureFromProcessor(info.wProcessorArchitecture);
+    }
+
+    arch = nativeArchitecture == NativeArchitecture::X86 ||
+           nativeArchitecture == NativeArchitecture::Arm32 ? 32 :
+           nativeArchitecture == NativeArchitecture::X64 ||
+           nativeArchitecture == NativeArchitecture::Arm64 ? 64 : 0;
+    return arch != 0;
 }
 
 bool disableWowRedirection() {
@@ -546,7 +615,9 @@ bool downloadIni(std::string& content, const std::wstring& source) {
     InternetSetOptionW(internet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionW(internet, INTERNET_OPTION_SEND_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionW(internet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
-    const std::wstring url = source.empty() ? std::wstring(kDefaultIniUrl) : source;
+    const std::wstring url = source.empty()
+        ? std::wstring(isArmArchitecture() ? kDefaultArmIniUrl : kDefaultIniUrl)
+        : source;
     HINTERNET request = InternetOpenUrlW(internet, url.c_str(), nullptr, 0,
         INTERNET_FLAG_RELOAD | INTERNET_FLAG_NO_CACHE_WRITE, 0);
     if (!request) { InternetCloseHandle(internet); return false; }
@@ -665,7 +736,7 @@ void extractFiles() {
     }
     if (error) { std::wcout << L"[-] ForceDirectories error.\n"; halt(error.value()); }
 
-    fs::path iniDestination = folder / L"rdpwrap.ini";
+    fs::path iniDestination = folder / configurationFileName();
     if (online) {
         if (!onlineIniContent.empty() && writeBytes(iniDestination, onlineIniContent))
             std::wcout << L"[+] Latest INI file -> " << iniDestination.wstring() << L"\n";
@@ -675,31 +746,37 @@ void extractFiles() {
         }
     }
     if (!online) {
-        fs::path adjacentIni = fs::path(executablePath()).parent_path() / L"rdpwrap.ini";
+        fs::path adjacentIni =
+            fs::path(executablePath()).parent_path() / configurationFileName();
         if (fs::exists(adjacentIni)) {
             const auto content = readValidatedIni(adjacentIni);
             if (content && writeBytes(iniDestination, *content)) {
                 std::wcout << L"[+] Current INI file -> " << iniDestination.wstring() << L"\n";
             } else {
-                std::wcout << L"[-] Adjacent rdpwrap.ini is invalid; using built-in configuration.\n";
-                if (!extractResource(L"config", iniDestination.wstring()))
+                std::wcout << L"[-] Adjacent INI is invalid; using built-in configuration.\n";
+                if (!extractResource(configurationResourceName(), iniDestination.wstring()))
                     halt(ERROR_RESOURCE_DATA_NOT_FOUND);
             }
-        } else if (!extractResource(L"config", iniDestination.wstring())) {
+        } else if (!extractResource(configurationResourceName(), iniDestination.wstring())) {
             halt(ERROR_RESOURCE_DATA_NOT_FOUND);
         }
     }
 
-    if (!extractResource(arch == 32 ? L"rdpw32" : L"rdpw64", expandPath(wrapPath)))
+    if (!extractResource(wrapperResourceName(), expandPath(wrapPath)))
         halt(ERROR_RESOURCE_DATA_NOT_FOUND);
     const std::wstring cncPath = L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe";
     if (!extractResource(L"rdp_cnc", expandPath(cncPath)))
         halt(ERROR_RESOURCE_DATA_NOT_FOUND);
     const wchar_t* clip = nullptr;
     const wchar_t* rfx = nullptr;
-    if (fileVersion.major == 6 && fileVersion.minor == 0) clip = arch == 32 ? L"rdpclip6032" : L"rdpclip6064";
-    if (fileVersion.major == 6 && fileVersion.minor == 1) clip = arch == 32 ? L"rdpclip6132" : L"rdpclip6164";
-    if (fileVersion.major == 10 && fileVersion.minor == 0) rfx = arch == 32 ? L"rfxvmt32" : L"rfxvmt64";
+    if (!isArmArchitecture()) {
+        if (fileVersion.major == 6 && fileVersion.minor == 0)
+            clip = arch == 32 ? L"RDPCLIP6032" : L"RDPCLIP6064";
+        if (fileVersion.major == 6 && fileVersion.minor == 1)
+            clip = arch == 32 ? L"RDPCLIP6132" : L"RDPCLIP6164";
+        if (fileVersion.major == 10 && fileVersion.minor == 0)
+            rfx = arch == 32 ? L"RFXVMT32" : L"RFXVMT64";
+    }
     std::wstring clipPath = expandPath(L"%SystemRoot%\\System32\\rdpclip.exe");
     std::wstring rfxPath = expandPath(L"%SystemRoot%\\System32\\rfxvmt.dll");
     if (clip && !fs::exists(clipPath) && !extractResource(clip, clipPath))
@@ -713,7 +790,7 @@ bool deleteFiles() {
     fs::path folder = dll.parent_path();
     std::error_code error;
     bool ok = true;
-    for (const fs::path& file : {folder / L"rdpwrap.ini", dll,
+    for (const fs::path& file : {folder / configurationFileName(), dll,
                                  fs::path(expandPath(L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe"))}) {
         if (fs::exists(file) && fs::remove(file, error))
             std::wcout << L"[+] Removed file: " << file.wstring() << L"\n";
@@ -791,13 +868,14 @@ void checkTermsrvVersion() {
         const std::vector<BYTE> bytes(onlineIniContent.begin(), onlineIniContent.end());
         configText = decodeText(bytes);
     } else {
-        const fs::path adjacentIni = fs::path(executablePath()).parent_path() / L"rdpwrap.ini";
+        const fs::path adjacentIni =
+            fs::path(executablePath()).parent_path() / configurationFileName();
         const auto adjacentContent = readValidatedIni(adjacentIni);
         if (adjacentContent) {
             const std::vector<BYTE> bytes(adjacentContent->begin(), adjacentContent->end());
             configText = decodeText(bytes);
         } else {
-            configText = resourceText(L"config");
+            configText = resourceText(configurationResourceName());
         }
     }
     if (configText.find(L"[" + version.str() + L"]") != std::wstring::npos) support = 2;
@@ -903,7 +981,8 @@ void checkUpdate(const std::wstring& source) {
              << (date / 100) % 100 << L'.' << std::setw(2) << date % 100;
         return text.str();
     };
-    fs::path iniPath = fs::path(expandPath(termServicePath)).parent_path() / L"rdpwrap.ini";
+    fs::path iniPath =
+        fs::path(expandPath(termServicePath)).parent_path() / configurationFileName();
     int oldDate = 0, newDate = 0;
     if (!iniDate(&iniPath, {}, oldDate)) halt(ERROR_ACCESS_DENIED);
     std::wcout << L"[*] Current update date: " << formattedDate(oldDate) << L"\n";
