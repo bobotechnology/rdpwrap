@@ -37,6 +37,8 @@ constexpr DWORD kNetworkTimeoutMs = 15000;
 constexpr DWORD kServiceTimeoutMs = 30000;
 constexpr wchar_t kConsolePidArgument[] = L"--rdpw-console-pid=";
 constexpr wchar_t kOutputPipeArgument[] = L"--rdpw-output-pipe=";
+constexpr wchar_t kRunBatchArgument[] = L"--rdpw-run-batch";
+constexpr wchar_t kElevatedBatchEnvironment[] = L"RDPW_BATCH_ELEVATED";
 
 struct FileVersion {
     WORD major = 0;
@@ -539,7 +541,7 @@ void killProcess(DWORD pid) {
         halt(waitResult == WAIT_TIMEOUT ? ERROR_TIMEOUT : ERROR_GEN_FAILURE);
 }
 
-bool execWait(const std::wstring& commandLine) {
+bool execWait(const std::wstring& commandLine, bool reportFailure = true) {
     // CreateProcess requires a writable command-line buffer.
     std::wstring command = commandLine;
     STARTUPINFOW startup{};
@@ -556,7 +558,8 @@ bool execWait(const std::wstring& commandLine) {
     const bool ok = waitResult == WAIT_OBJECT_0 &&
         GetExitCodeProcess(process.hProcess, &exitCode) && exitCode == 0;
     CloseHandle(process.hProcess);
-    if (!ok) std::wcout << L"[-] Command failed (exit code " << exitCode << L").\n";
+    if (!ok && reportFailure)
+        std::wcout << L"[-] Command failed (exit code " << exitCode << L").\n";
     return ok;
 }
 
@@ -973,13 +976,13 @@ void configureFirewall(bool enable) {
         if (port < 1 || port > 65535) port = 3389;
         const std::wstring localPort = std::to_wstring(port);
         // Make retries idempotent instead of accumulating duplicate rules.
-        execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper TCP 3389\"");
-        execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper UDP 3389\"");
+        execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper TCP 3389\"", false);
+        execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper UDP 3389\"", false);
         ok = execWait(netsh + L"advfirewall firewall add rule name=\"RDP Wrapper TCP 3389\" dir=in protocol=tcp localport=" + localPort + L" profile=any action=allow") &&
              execWait(netsh + L"advfirewall firewall add rule name=\"RDP Wrapper UDP 3389\" dir=in protocol=udp localport=" + localPort + L" profile=any action=allow");
         if (!ok) {
-            execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper TCP 3389\"");
-            execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper UDP 3389\"");
+            execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper TCP 3389\"", false);
+            execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper UDP 3389\"", false);
         }
     } else {
         const bool tcp = execWait(netsh + L"advfirewall firewall delete rule name=\"RDP Wrapper TCP 3389\"");
@@ -1316,7 +1319,64 @@ std::wstring quoteArgument(const std::wstring& argument) {
     return quoted;
 }
 
-int relaunchElevated(int argc, wchar_t* argv[]) {
+int runElevatedBatch(const std::wstring& path) {
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    if (attributes == INVALID_FILE_ATTRIBUTES ||
+        (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0)
+        return ERROR_FILE_NOT_FOUND;
+    if (!samePath(parentPath(path), parentPath(executablePath())))
+        return ERROR_ACCESS_DENIED;
+
+    const size_t separator = path.find_last_of(L"\\/");
+    const std::wstring name = separator == std::wstring::npos
+        ? path : path.substr(separator + 1);
+    bool allowed = false;
+    for (const wchar_t* candidate : {
+            L"install.bat", L"update.bat", L"uninstall.bat",
+            L"install-arm32.bat", L"update-arm32.bat",
+            L"uninstall-arm32.bat"}) {
+        if (_wcsicmp(name.c_str(), candidate) == 0) {
+            allowed = true;
+            break;
+        }
+    }
+    if (!allowed) return ERROR_ACCESS_DENIED;
+
+    wchar_t commandInterpreter[MAX_PATH]{};
+    DWORD length = GetEnvironmentVariableW(
+        L"ComSpec", commandInterpreter, static_cast<DWORD>(std::size(commandInterpreter)));
+    if (!length || length >= std::size(commandInterpreter)) {
+        const std::wstring fallback = expandPath(L"%SystemRoot%\\System32\\cmd.exe");
+        if (fallback.size() >= std::size(commandInterpreter)) return ERROR_BUFFER_OVERFLOW;
+        std::copy(fallback.begin(), fallback.end(), commandInterpreter);
+        commandInterpreter[fallback.size()] = L'\0';
+    }
+
+    std::wstring commandLine = quoteArgument(commandInterpreter);
+    commandLine += L" /d /c call ";
+    commandLine += quoteArgument(path);
+    SetEnvironmentVariableW(kElevatedBatchEnvironment, L"1");
+    STARTUPINFOW startup{};
+    startup.cb = sizeof(startup);
+    PROCESS_INFORMATION process{};
+    const BOOL created = CreateProcessW(commandInterpreter, commandLine.data(),
+        nullptr, nullptr, TRUE, 0, nullptr, parentPath(path).c_str(),
+        &startup, &process);
+    const DWORD createError = created ? ERROR_SUCCESS : GetLastError();
+    SetEnvironmentVariableW(kElevatedBatchEnvironment, nullptr);
+    if (!created) return static_cast<int>(createError);
+
+    CloseHandle(process.hThread);
+    const DWORD waitResult = WaitForSingleObject(process.hProcess, INFINITE);
+    DWORD exitCode = ERROR_GEN_FAILURE;
+    if (waitResult != WAIT_OBJECT_0 ||
+        !GetExitCodeProcess(process.hProcess, &exitCode))
+        exitCode = GetLastError();
+    CloseHandle(process.hProcess);
+    return static_cast<int>(exitCode);
+}
+
+int relaunchElevated(int argc, wchar_t* argv[], bool relayOutput = true) {
     GUID pipeId{};
     wchar_t pipeIdText[40]{};
     const std::wstring pipeSuffix = SUCCEEDED(CoCreateGuid(&pipeId)) &&
@@ -1324,10 +1384,12 @@ int relaunchElevated(int argc, wchar_t* argv[]) {
         ? std::wstring(pipeIdText) : std::to_wstring(GetTickCount64());
     const std::wstring pipeName = L"\\\\.\\pipe\\RDPWInst-" +
         std::to_wstring(GetCurrentProcessId()) + L"-" + pipeSuffix;
-    HANDLE outputPipe = CreateNamedPipeW(pipeName.c_str(),
-        PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
-        PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
-        1, 65536, 65536, 0, nullptr);
+    HANDLE outputPipe = relayOutput
+        ? CreateNamedPipeW(pipeName.c_str(),
+            PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+            PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT,
+            1, 65536, 65536, 0, nullptr)
+        : INVALID_HANDLE_VALUE;
 
     std::wstring parameters;
     for (int index = 1; index < argc; ++index) {
@@ -1462,7 +1524,14 @@ int wmain(int argc, wchar_t* argv[]) {
 
         // Keep the manifest asInvoker so Windows can preserve the caller's
         // console, then elevate every invocation through the same runas path.
-        if (!isProcessElevated()) return relaunchElevated(argc, argv);
+        const bool runBatch = argc > 1 &&
+            std::wstring(argv[1]) == kRunBatchArgument;
+        if (!isProcessElevated())
+            return relaunchElevated(argc, argv, !runBatch);
+        if (runBatch) {
+            if (argc != 3 || !argv[2][0]) return ERROR_INVALID_PARAMETER;
+            return runElevatedBatch(argv[2]);
+        }
         if (argc < 2) { printBanner(); usage(); return 0; }
         std::wstring command = argv[1];
         if (command != L"-l" && command != L"-i" && command != L"-w" &&
