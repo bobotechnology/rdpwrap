@@ -88,7 +88,8 @@ MSVC 会从保留的系统 Payload 文件编译 `src-installer/installer.rc`。�
 或 `windres`。
 
 产物位于构建目录的 `bin` 子目录。原生 x64 构建会把刚构建的 x64
-`rdpwrap.dll`、`RDP_CnC.exe` 和 `res/rdpwrap.ini` 嵌入 `RDPWInst.exe`。
+`rdpwrap.dll` 和 `res/rdpwrap.ini` 嵌入 `RDPWInst.exe`。发行包会将
+`RDP_CnC.exe` 作为独立程序放入 ZIP，避免在安装器中重复嵌入。
 
 Win32 聚合 Installer 可通过原生或模拟层运行在支持的 Windows 架构上。请先单独构建
 其他架构的 Wrapper，再配置聚合安装器：

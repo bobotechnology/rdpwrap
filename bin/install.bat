@@ -3,7 +3,9 @@ setlocal
 if not exist "%~dp0RDPWInst.exe" goto :error
 if "%RDPW_BATCH_ELEVATED%"=="1" goto :elevated
 "%~dp0RDPWInst.exe" --rdpw-run-batch "%~f0"
-exit /b %errorlevel%
+set "RDPW_RESULT=%errorlevel%"
+if "%RDPW_RESULT%"=="0" if exist "%~dp0RDP_CnC.exe" start "" "%~dp0RDP_CnC.exe"
+exit /b %RDPW_RESULT%
 
 :elevated
 set "RDPW_BATCH_ELEVATED="
@@ -16,7 +18,6 @@ if errorlevel 1 goto :copy_failed
 SCHTASKS /CREATE /F /SC ONSTART /DELAY 0002:00 /TN "RDPWUpdater" /TR "\"%ProgramFiles%\RDP Wrapper\RDPWInst.exe\" -w" /RL HIGHEST /RU SYSTEM /NP
 if errorlevel 1 goto :task_failed
 
-if exist "%ProgramFiles%\RDP Wrapper\RDP_CnC.exe" start "" "%ProgramFiles%\RDP Wrapper\RDP_CnC.exe"
 pause
 exit /b 0
 

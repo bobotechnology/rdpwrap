@@ -33,15 +33,13 @@ set(INSTALLER_RDPW32 "" CACHE FILEPATH "Optional x86 rdpwrap.dll embedded as RDP
 set(INSTALLER_RDPW64 "" CACHE FILEPATH "Optional x64 rdpwrap.dll embedded as RDPW64")
 set(INSTALLER_RDPWARM "" CACHE FILEPATH "Optional ARM32 rdpwrap.dll embedded as RDPWARM")
 set(INSTALLER_RDPWARM64 "" CACHE FILEPATH "Optional ARM64 rdpwrap.dll embedded as RDPWARM64")
-set(INSTALLER_RDP_CNC "" CACHE FILEPATH "Optional RDP_CnC.exe embedded as RDP_CNC")
 set(INSTALLER_RESOURCE_PATCHER "" CACHE FILEPATH
     "Optional native-host installer_resource_patcher used for cross-compiling")
 
-# In the repository build, embed the native Wrapper and RDP_CnC produced by
-# this build. A Win32 aggregate release supplies the other three Wrappers from
-# separate cross-architecture builds.
+# In the repository build, embed the native Wrapper produced by this build. A
+# Win32 aggregate release supplies the other three Wrappers from separate
+# cross-architecture builds.
 if(NOT PROJECT_IS_TOP_LEVEL)
-  set(INSTALLER_RDP_CNC "$<TARGET_FILE:RDP_CnC>")
   if(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM64")
     set(INSTALLER_RDPWARM64 "$<TARGET_FILE:rdpwrap>")
   elseif(CMAKE_VS_PLATFORM_NAME STREQUAL "ARM")
@@ -63,7 +61,7 @@ endif()
 set(RESOURCE_REPLACEMENT_DEPENDS
   "${INSTALLER_CONFIG_INI}" "${INSTALLER_CONFIG_ARM_INI}"
   "${INSTALLER_LICENSE_FILE}")
-foreach(resource_name IN ITEMS RDPW32 RDPW64 RDPWARM RDPWARM64 RDP_CNC)
+foreach(resource_name IN ITEMS RDPW32 RDPW64 RDPWARM RDPWARM64)
   if(NOT "${INSTALLER_${resource_name}}" STREQUAL "")
     list(APPEND RESOURCE_REPLACEMENT_DEPENDS "${INSTALLER_${resource_name}}")
   endif()
@@ -129,7 +127,7 @@ set_property(TARGET RDPWInst APPEND PROPERTY LINK_DEPENDS
   "${APP_MANIFEST}" "${INSTALLER_RESOURCE_SCRIPT}"
   ${STATIC_RESOURCE_FILES} ${RESOURCE_REPLACEMENT_DEPENDS})
 if(NOT PROJECT_IS_TOP_LEVEL)
-  add_dependencies(RDPWInst rdpwrap RDP_CnC)
+  add_dependencies(RDPWInst rdpwrap)
 endif()
 add_custom_command(TARGET RDPWInst POST_BUILD
   COMMAND "${INSTALLER_RESOURCE_PATCHER_COMMAND}"
@@ -142,7 +140,6 @@ add_custom_command(TARGET RDPWInst POST_BUILD
           "${INSTALLER_RDPW64}"
           "${INSTALLER_RDPWARM}"
           "${INSTALLER_RDPWARM64}"
-          "${INSTALLER_RDP_CNC}"
   VERBATIM
   COMMENT "Updating installer payloads and asInvoker manifest"
 )

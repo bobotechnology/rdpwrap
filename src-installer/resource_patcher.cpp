@@ -26,8 +26,8 @@ bool replaceResource(HANDLE update, const wchar_t* type, const wchar_t* name,
 }  // namespace
 
 int wmain(int argc, wchar_t** argv) {
-    // target.exe manifest config config_arm license rdpw32 rdpw64 rdpwarm rdpwarm64 rdp_cnc
-    if (argc != 11) return 1;
+    // target.exe manifest config config_arm license rdpw32 rdpw64 rdpwarm rdpwarm64
+    if (argc != 10) return 1;
 
     HANDLE update = BeginUpdateResourceW(argv[1], FALSE);
     if (update == nullptr) return 2;
@@ -41,8 +41,8 @@ int wmain(int argc, wchar_t** argv) {
     ok = replaceResource(update, RT_RCDATA, L"LICENSE", argv[5], neutral) && ok;
 
     constexpr const wchar_t* names[] = {
-        L"RDPW32", L"RDPW64", L"RDPWARM", L"RDPWARM64", L"RDP_CNC"};
-    for (int index = 0; index < 5; ++index) {
+        L"RDPW32", L"RDPW64", L"RDPWARM", L"RDPWARM64"};
+    for (int index = 0; index < 4; ++index) {
         if (argv[index + 6][0] != L'\0') {
             ok = replaceResource(update, RT_RCDATA, names[index],
                                  argv[index + 6], neutral) && ok;

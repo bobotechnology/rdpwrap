@@ -37,6 +37,7 @@ Invoke-CMake --build build-arm32 --config Release --target rdpwrap --parallel
 $rdpw64 = Join-Path $root "build-x64/bin/Release/rdpwrap.dll"
 $rdpwArm = Join-Path $root "build-arm32/bin/Release/rdpwrap.dll"
 $rdpwArm64 = Join-Path $root "build-arm64/bin/Release/rdpwrap.dll"
+$rdpCnc = Join-Path $root "build-x86/bin/Release/RDP_CnC.exe"
 foreach ($wrapper in $rdpw64, $rdpwArm, $rdpwArm64) {
     if (-not (Test-Path -LiteralPath $wrapper)) { throw "Missing wrapper: $wrapper" }
 }
@@ -44,12 +45,14 @@ Invoke-CMake -S . -B build-x86 -G "Visual Studio 17 2022" -A Win32 `
     "-DINSTALLER_RDPW64=$rdpw64" `
     "-DINSTALLER_RDPWARM=$rdpwArm" `
     "-DINSTALLER_RDPWARM64=$rdpwArm64"
-Invoke-CMake --build build-x86 --config Release --target RDPWInst --parallel
+Invoke-CMake --build build-x86 --config Release `
+    --target RDPWInst RDP_CnC --parallel
+
+if (-not (Test-Path -LiteralPath $rdpCnc)) { throw "Missing RDP_CnC: $rdpCnc" }
 
 $hostPatcher = Join-Path $root `
     "build-x86/src-installer/Release/installer_resource_patcher.exe"
-$rdpCnc = Join-Path $root "build-x86/bin/Release/RDP_CnC.exe"
-foreach ($payload in $hostPatcher, $rdpwArm, $rdpwArm64, $rdpCnc) {
+foreach ($payload in $hostPatcher, $rdpwArm, $rdpwArm64) {
     if (-not (Test-Path -LiteralPath $payload)) {
         throw "Missing ARM32 Installer input: $payload"
     }
@@ -58,8 +61,7 @@ Invoke-CMake -S src-installer -B build-installer-arm32 `
     -G "Visual Studio 17 2022" -A "ARM,version=10.0.19041.0" -T v142 `
     "-DINSTALLER_RESOURCE_PATCHER=$hostPatcher" `
     "-DINSTALLER_RDPWARM=$rdpwArm" `
-    "-DINSTALLER_RDPWARM64=$rdpwArm64" `
-    "-DINSTALLER_RDP_CNC=$rdpCnc"
+    "-DINSTALLER_RDPWARM64=$rdpwArm64"
 Invoke-CMake --build build-installer-arm32 --config Release `
     --target RDPWInst --parallel
 

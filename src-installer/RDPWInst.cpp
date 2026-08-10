@@ -810,9 +810,6 @@ void extractFiles() {
 
     if (!extractResource(wrapperResourceName(), expandPath(wrapPath)))
         halt(ERROR_RESOURCE_DATA_NOT_FOUND);
-    const std::wstring cncPath = L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe";
-    if (!extractResource(L"rdp_cnc", expandPath(cncPath)))
-        halt(ERROR_RESOURCE_DATA_NOT_FOUND);
     const wchar_t* clip = nullptr;
     const wchar_t* rfx = nullptr;
     if (!isArmArchitecture()) {

@@ -29,12 +29,13 @@ any temporary console allocated by the broker. This code-based elevation is
 intentional: a `requireAdministrator` manifest elevates before the program can
 set up reliable output forwarding.
 
-Repository builds refresh `CONFIG`, `CONFIG_ARM`, the current-architecture
-Wrapper, and `RDP_CnC.exe`. A Win32 aggregate Installer can receive separately
-built wrappers through `INSTALLER_RDPW64`, `INSTALLER_RDPWARM`, and
-`INSTALLER_RDPWARM64`. At runtime it selects `RDPW32`, `RDPW64`, `RDPWARM`, or
-`RDPWARM64` from the native processor architecture. ARM uses
-`rdpwrap-arm-kb.ini` and never extracts the legacy x86/x64 system components.
+Repository builds refresh `CONFIG`, `CONFIG_ARM`, and the current-architecture
+Wrapper. Release archives provide `RDP_CnC.exe` separately. A Win32 aggregate
+Installer can receive separately built wrappers through `INSTALLER_RDPW64`,
+`INSTALLER_RDPWARM`, and `INSTALLER_RDPWARM64`. At runtime it selects `RDPW32`,
+`RDPW64`, `RDPWARM`, or `RDPWARM64` from the native processor architecture.
+ARM uses `rdpwrap-arm-kb.ini` and never extracts the legacy x86/x64 system
+components.
 
 ## Commands
 

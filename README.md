@@ -99,8 +99,9 @@ current build outputs to the final Installer; MinGW and `windres` are not
 required.
 
 Outputs are written below the build directory's `bin` folder. A native x64
-build embeds its freshly built x64 `rdpwrap.dll`, `RDP_CnC.exe`, and
-`res/rdpwrap.ini` into `RDPWInst.exe`.
+build embeds its freshly built x64 `rdpwrap.dll` and `res/rdpwrap.ini` into
+`RDPWInst.exe`. Release archives carry `RDP_CnC.exe` as a separate application
+instead of duplicating it inside the Installer.
 
 A Win32 aggregate Installer can run under the native or emulation layer on the
 supported Windows architectures. Build the other wrappers separately and
