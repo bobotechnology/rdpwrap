@@ -76,7 +76,8 @@ ARM Wrapper 需要安装对应的 MSVC 交叉编译器，其中 ARM32 使用旧�
 cmake -S . -B build-arm64 -G "Visual Studio 17 2022" -A ARM64
 cmake --build build-arm64 --config Release --target rdpwrap --parallel
 
-cmake -S . -B build-arm32 -G "Visual Studio 17 2022" -A ARM -T v142
+cmake -S . -B build-arm32 -G "Visual Studio 17 2022" -A ARM -T v142 `
+  -DCMAKE_SYSTEM_VERSION=10.0.19041.0
 cmake --build build-arm32 --config Release --target rdpwrap --parallel
 ```
 
