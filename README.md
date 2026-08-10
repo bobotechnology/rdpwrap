@@ -57,6 +57,9 @@ to the original project.
 
 - Administrator permission is required for installation and system changes.
 - Windows 10/11 are the primary supported and tested targets for this edition.
+- Release binaries remain load-compatible with Windows Vista. Newer optional
+  APIs are resolved dynamically, and CI rejects known post-Vista static imports;
+  Vista is a compatibility target rather than a continuously executed test OS.
 - Actual `termsrv.dll` support depends on whether the active `rdpwrap.ini`
   contains the exact Windows product-version section.
 - The release pipeline builds x86, x64, ARM32, and ARM64 wrappers. ARM runtime

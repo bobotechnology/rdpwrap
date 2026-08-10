@@ -62,7 +62,9 @@ endforeach()
 
 add_executable(RDPWInst RDPWInst.cpp)
 target_compile_features(RDPWInst PRIVATE cxx_std_17)
-target_compile_definitions(RDPWInst PRIVATE UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+target_compile_definitions(RDPWInst PRIVATE
+  UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
+  WINVER=0x0600 _WIN32_WINNT=0x0600)
 target_link_libraries(RDPWInst PRIVATE
   advapi32
   ole32
@@ -85,7 +87,8 @@ if(INSTALLER_RESOURCE_PATCHER STREQUAL "")
   add_executable(installer_resource_patcher resource_patcher.cpp)
   target_compile_features(installer_resource_patcher PRIVATE cxx_std_17)
   target_compile_definitions(installer_resource_patcher PRIVATE
-    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX)
+    UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
+    WINVER=0x0600 _WIN32_WINNT=0x0600)
   target_compile_options(installer_resource_patcher PRIVATE /W4 /permissive- /utf-8)
   set_property(TARGET installer_resource_patcher PROPERTY
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

@@ -105,6 +105,41 @@ jobs:
           Assert-PeMachine build-x86/bin/Release/RDPWInst.exe 0x014c
           Assert-PeMachine build-installer-arm32/Release/RDPWInst.exe 0x01c4
 
+          # Keep release binaries loadable on Vista. These APIs are imported
+          # by newer SDK/STL paths unless resolved dynamically or replaced.
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vsPath = & $vswhere -latest -property installationPath
+          $dumpbin = Get-ChildItem `
+            "$vsPath\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          if (-not $dumpbin) { throw "dumpbin.exe was not found" }
+          $forbiddenImports = @(
+            "CreateFile2",
+            "GetDpiForWindow",
+            "GetDpiForSystem",
+            "GetSystemTimePreciseAsFileTime",
+            "GetTempPath2W",
+            "SetThreadDescription"
+          )
+          $releaseBinaries = @(
+            "build-x86/bin/Release/RDPWInst.exe",
+            "build-installer-arm32/Release/RDPWInst.exe",
+            "build-x86/bin/Release/RDP_CnC.exe",
+            "build-x86/bin/Release/rdpwrap.dll",
+            "build-x64/bin/Release/rdpwrap.dll",
+            "build-arm32/bin/Release/rdpwrap.dll",
+            "build-arm64/bin/Release/rdpwrap.dll"
+          )
+          foreach ($binary in $releaseBinaries) {
+            $imports = (& $dumpbin.FullName /nologo /imports $binary 2>&1 | Out-String)
+            if ($LASTEXITCODE -ne 0) { throw "dumpbin failed for $binary" }
+            foreach ($api in $forbiddenImports) {
+              if ($imports -match "\b$([regex]::Escape($api))\b") {
+                throw "Post-Vista static import $api found in $binary"
+              }
+            }
+          }
+
           New-Item -ItemType Directory -Path dist | Out-Null
           Copy-Item build-x86/bin/Release/RDPWInst.exe dist/
           Copy-Item build-installer-arm32/Release/RDPWInst.exe `

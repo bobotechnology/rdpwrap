@@ -4,6 +4,7 @@
 
 #include <windows.h>
 #include <shellapi.h>
+#include <shlobj.h>
 #include <objbase.h>
 #include <winsvc.h>
 #include <wininet.h>
@@ -16,8 +17,6 @@
 #include <cstring>
 #include <cwctype>
 #include <exception>
-#include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <optional>
@@ -25,8 +24,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-
-namespace fs = std::filesystem;
 
 namespace {
 
@@ -137,6 +134,39 @@ std::wstring executablePath() {
     if (!size || size >= path.size()) return {};
     path.resize(size);
     return path;
+}
+
+std::wstring parentPath(std::wstring path) {
+    while (path.size() > 3 && (path.back() == L'\\' || path.back() == L'/'))
+        path.pop_back();
+    const size_t separator = path.find_last_of(L"\\/");
+    if (separator == std::wstring::npos) return {};
+    if (separator == 2 && path.size() >= 3 && path[1] == L':') return path.substr(0, 3);
+    return path.substr(0, separator);
+}
+
+std::wstring joinPath(const std::wstring& folder, const std::wstring& name) {
+    if (folder.empty()) return name;
+    if (folder.back() == L'\\' || folder.back() == L'/') return folder + name;
+    return folder + L'\\' + name;
+}
+
+bool pathExists(const std::wstring& path) {
+    return GetFileAttributesW(path.c_str()) != INVALID_FILE_ATTRIBUTES;
+}
+
+bool directoryExists(const std::wstring& path) {
+    const DWORD attributes = GetFileAttributesW(path.c_str());
+    return attributes != INVALID_FILE_ATTRIBUTES &&
+           (attributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+bool samePath(std::wstring first, std::wstring second) {
+    while (first.size() > 3 && (first.back() == L'\\' || first.back() == L'/'))
+        first.pop_back();
+    while (second.size() > 3 && (second.back() == L'\\' || second.back() == L'/'))
+        second.pop_back();
+    return _wcsicmp(first.c_str(), second.c_str()) == 0;
 }
 
 REGSAM registryView(REGSAM access) {
@@ -576,9 +606,16 @@ bool extractResource(const wchar_t* name, const std::wstring& destination) {
         std::wcout << L"[-] Failed to load resource " << name << L".\n";
         return false;
     }
-    std::ofstream stream(fs::path(destination), std::ios::binary);
-    stream.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
-    if (!stream) {
+    HANDLE file = CreateFileW(destination.c_str(), GENERIC_WRITE, 0, nullptr,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD written = 0;
+    const bool ok = file != INVALID_HANDLE_VALUE &&
+        bytes.size() <= MAXDWORD &&
+        WriteFile(file, bytes.data(), static_cast<DWORD>(bytes.size()), &written, nullptr) &&
+        written == static_cast<DWORD>(bytes.size()) && FlushFileBuffers(file);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (!ok) {
+        DeleteFileW(destination.c_str());
         std::wcout << L"[-] Failed to extract file.\n[*] Resource name: " << name
                    << L"\n[*] Destination path: " << destination << L"\n";
         return false;
@@ -665,14 +702,24 @@ bool validIniContent(const std::string& content) {
            content[value + 10] == '\n';
 }
 
-std::optional<std::string> readValidatedIni(const fs::path& path) {
-    std::error_code error;
-    const uintmax_t size = fs::file_size(path, error);
-    if (error || size == 0 || size > kMaximumIniBytes) return std::nullopt;
-    std::ifstream input(path, std::ios::binary);
-    std::string content(static_cast<size_t>(size), '\0');
-    input.read(content.data(), static_cast<std::streamsize>(content.size()));
-    if (!input || !validIniContent(content)) return std::nullopt;
+std::optional<std::string> readValidatedIni(const std::wstring& path) {
+    HANDLE file = CreateFileW(path.c_str(), GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+        OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (file == INVALID_HANDLE_VALUE) return std::nullopt;
+    LARGE_INTEGER size{};
+    if (!GetFileSizeEx(file, &size) || size.QuadPart <= 0 ||
+        size.QuadPart > static_cast<LONGLONG>(kMaximumIniBytes)) {
+        CloseHandle(file);
+        return std::nullopt;
+    }
+    std::string content(static_cast<size_t>(size.QuadPart), '\0');
+    DWORD read = 0;
+    const bool ok = ReadFile(file, content.data(), static_cast<DWORD>(content.size()),
+                             &read, nullptr) &&
+                    read == static_cast<DWORD>(content.size());
+    CloseHandle(file);
+    if (!ok || !validIniContent(content)) return std::nullopt;
     return content;
 }
 
@@ -704,19 +751,21 @@ void grantSidFullAccess(const std::wstring& path, const wchar_t* sidText) {
     LocalFree(sid);
 }
 
-bool writeBytes(const fs::path& path, const std::string& content) {
-    const fs::path temporary = path.wstring() + L".tmp-" +
+bool writeBytes(const std::wstring& path, const std::string& content) {
+    const std::wstring temporary = path + L".tmp-" +
         std::to_wstring(GetCurrentProcessId()) + L"-" +
         std::to_wstring(GetTickCount64());
-    {
-        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
-        output.write(content.data(), static_cast<std::streamsize>(content.size()));
-        output.flush();
-        if (!output) {
-            output.close();
-            DeleteFileW(temporary.c_str());
-            return false;
-        }
+    HANDLE file = CreateFileW(temporary.c_str(), GENERIC_WRITE, 0, nullptr,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    DWORD written = 0;
+    const bool ok = file != INVALID_HANDLE_VALUE && content.size() <= MAXDWORD &&
+        WriteFile(file, content.data(), static_cast<DWORD>(content.size()),
+                  &written, nullptr) &&
+        written == static_cast<DWORD>(content.size()) && FlushFileBuffers(file);
+    if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+    if (!ok) {
+        DeleteFileW(temporary.c_str());
+        return false;
     }
     if (!MoveFileExW(temporary.c_str(), path.c_str(),
             MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH)) {
@@ -727,37 +776,41 @@ bool writeBytes(const fs::path& path, const std::string& content) {
 }
 
 void extractFiles() {
-    fs::path folder = fs::path(expandPath(wrapPath)).parent_path();
-    std::error_code error;
-    if (!fs::exists(folder) && fs::create_directories(folder, error)) {
-        std::wcout << L"[+] Folder created: " << folder.wstring() << L"\n";
-        grantSidFullAccess(folder.wstring(), L"S-1-5-18");
-        grantSidFullAccess(folder.wstring(), L"S-1-5-6");
+    const std::wstring folder = parentPath(expandPath(wrapPath));
+    if (!directoryExists(folder)) {
+        const int result = SHCreateDirectoryExW(nullptr, folder.c_str(), nullptr);
+        if (result != ERROR_SUCCESS && result != ERROR_ALREADY_EXISTS &&
+            result != ERROR_FILE_EXISTS) {
+            std::wcout << L"[-] ForceDirectories error.\n";
+            halt(static_cast<DWORD>(result));
+        }
+        std::wcout << L"[+] Folder created: " << folder << L"\n";
+        grantSidFullAccess(folder, L"S-1-5-18");
+        grantSidFullAccess(folder, L"S-1-5-6");
     }
-    if (error) { std::wcout << L"[-] ForceDirectories error.\n"; halt(error.value()); }
 
-    fs::path iniDestination = folder / configurationFileName();
+    const std::wstring iniDestination = joinPath(folder, configurationFileName());
     if (online) {
         if (!onlineIniContent.empty() && writeBytes(iniDestination, onlineIniContent))
-            std::wcout << L"[+] Latest INI file -> " << iniDestination.wstring() << L"\n";
+            std::wcout << L"[+] Latest INI file -> " << iniDestination << L"\n";
         else {
             std::wcout << L"[-] Failed to get online INI file, using built-in.\n";
             online = false;
         }
     }
     if (!online) {
-        fs::path adjacentIni =
-            fs::path(executablePath()).parent_path() / configurationFileName();
-        if (fs::exists(adjacentIni)) {
+        const std::wstring adjacentIni =
+            joinPath(parentPath(executablePath()), configurationFileName());
+        if (pathExists(adjacentIni)) {
             const auto content = readValidatedIni(adjacentIni);
             if (content && writeBytes(iniDestination, *content)) {
-                std::wcout << L"[+] Current INI file -> " << iniDestination.wstring() << L"\n";
+                std::wcout << L"[+] Current INI file -> " << iniDestination << L"\n";
             } else {
                 std::wcout << L"[-] Adjacent INI is invalid; using built-in configuration.\n";
-                if (!extractResource(configurationResourceName(), iniDestination.wstring()))
+                if (!extractResource(configurationResourceName(), iniDestination))
                     halt(ERROR_RESOURCE_DATA_NOT_FOUND);
             }
-        } else if (!extractResource(configurationResourceName(), iniDestination.wstring())) {
+        } else if (!extractResource(configurationResourceName(), iniDestination)) {
             halt(ERROR_RESOURCE_DATA_NOT_FOUND);
         }
     }
@@ -779,33 +832,32 @@ void extractFiles() {
     }
     std::wstring clipPath = expandPath(L"%SystemRoot%\\System32\\rdpclip.exe");
     std::wstring rfxPath = expandPath(L"%SystemRoot%\\System32\\rfxvmt.dll");
-    if (clip && !fs::exists(clipPath) && !extractResource(clip, clipPath))
+    if (clip && !pathExists(clipPath) && !extractResource(clip, clipPath))
         halt(ERROR_RESOURCE_DATA_NOT_FOUND);
-    if (rfx && !fs::exists(rfxPath) && !extractResource(rfx, rfxPath))
+    if (rfx && !pathExists(rfxPath) && !extractResource(rfx, rfxPath))
         halt(ERROR_RESOURCE_DATA_NOT_FOUND);
 }
 
 bool deleteFiles() {
-    fs::path dll = expandPath(termServicePath);
-    fs::path folder = dll.parent_path();
-    std::error_code error;
+    const std::wstring dll = expandPath(termServicePath);
+    const std::wstring folder = parentPath(dll);
     bool ok = true;
-    for (const fs::path& file : {folder / configurationFileName(), dll,
-                                 fs::path(expandPath(L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe"))}) {
-        if (fs::exists(file) && fs::remove(file, error))
-            std::wcout << L"[+] Removed file: " << file.wstring() << L"\n";
-        else if (error) {
-            std::wcout << L"[-] DeleteFile error (code " << error.value() << L") for file: "
-                       << file.wstring() << L"\n";
-            error.clear();
+    for (const std::wstring& file : {
+            joinPath(folder, configurationFileName()), dll,
+            expandPath(L"%ProgramFiles%\\RDP Wrapper\\RDP_CnC.exe")}) {
+        if (!pathExists(file)) continue;
+        if (DeleteFileW(file.c_str()))
+            std::wcout << L"[+] Removed file: " << file << L"\n";
+        else {
+            const DWORD code = GetLastError();
+            std::wcout << L"[-] DeleteFile error (code " << code
+                       << L") for file: " << file << L"\n";
             ok = false;
         }
     }
-    fs::path installFolder = fs::path(expandPath(L"%ProgramFiles%\\RDP Wrapper"));
-    if (fs::equivalent(folder, installFolder, error)) {
-        error.clear();
-        fs::remove(folder, error); // Only removes an empty directory.
-        if (!error) std::wcout << L"[+] Removed folder: " << folder.wstring() << L"\n";
+    const std::wstring installFolder = expandPath(L"%ProgramFiles%\\RDP Wrapper");
+    if (samePath(folder, installFolder) && RemoveDirectoryW(folder.c_str())) {
+        std::wcout << L"[+] Removed folder: " << folder << L"\n";
     }
     return ok;
 }
@@ -868,8 +920,8 @@ void checkTermsrvVersion() {
         const std::vector<BYTE> bytes(onlineIniContent.begin(), onlineIniContent.end());
         configText = decodeText(bytes);
     } else {
-        const fs::path adjacentIni =
-            fs::path(executablePath()).parent_path() / configurationFileName();
+        const std::wstring adjacentIni =
+            joinPath(parentPath(executablePath()), configurationFileName());
         const auto adjacentContent = readValidatedIni(adjacentIni);
         if (adjacentContent) {
             const std::vector<BYTE> bytes(adjacentContent->begin(), adjacentContent->end());
@@ -947,12 +999,27 @@ void configureFirewall(bool enable) {
     if (!ok) halt(ERROR_GEN_FAILURE);
 }
 
-bool iniDate(const fs::path* filename, const std::string& content, int& date) {
+bool iniDate(const std::wstring* filename, const std::string& content, int& date) {
     std::string data = content;
     if (filename) {
-        std::ifstream input(*filename, std::ios::binary);
-        data.assign(std::istreambuf_iterator<char>(input), {});
-        if (!input && data.empty()) {
+        HANDLE file = CreateFileW(filename->c_str(), GENERIC_READ,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+        LARGE_INTEGER size{};
+        if (file == INVALID_HANDLE_VALUE || !GetFileSizeEx(file, &size) ||
+            size.QuadPart <= 0 ||
+            size.QuadPart > static_cast<LONGLONG>(kMaximumIniBytes)) {
+            if (file != INVALID_HANDLE_VALUE) CloseHandle(file);
+            std::wcout << L"[-] Failed to read INI file.\n";
+            return false;
+        }
+        data.assign(static_cast<size_t>(size.QuadPart), '\0');
+        DWORD read = 0;
+        const bool ok = ReadFile(file, data.data(), static_cast<DWORD>(data.size()),
+                                 &read, nullptr) &&
+                        read == static_cast<DWORD>(data.size());
+        CloseHandle(file);
+        if (!ok) {
             std::wcout << L"[-] Failed to read INI file.\n";
             return false;
         }
@@ -981,8 +1048,8 @@ void checkUpdate(const std::wstring& source) {
              << (date / 100) % 100 << L'.' << std::setw(2) << date % 100;
         return text.str();
     };
-    fs::path iniPath =
-        fs::path(expandPath(termServicePath)).parent_path() / configurationFileName();
+    const std::wstring iniPath =
+        joinPath(parentPath(expandPath(termServicePath)), configurationFileName());
     int oldDate = 0, newDate = 0;
     if (!iniDate(&iniPath, {}, oldDate)) halt(ERROR_ACCESS_DENIED);
     std::wcout << L"[*] Current update date: " << formattedDate(oldDate) << L"\n";
@@ -1019,7 +1086,7 @@ void checkUpdate(const std::wstring& source) {
     for (const auto& service : sharedServices)
         servicesOk = startService(service) && servicesOk;
     Sleep(500);
-    std::wcout << L"[*] Saving new INI file to " << iniPath.wstring() << L"\n";
+    std::wcout << L"[*] Saving new INI file to " << iniPath << L"\n";
     const bool saved = writeBytes(iniPath, content);
     if (saved) std::wcout << L"[+] INI file saved successfully.\n";
     const bool termStarted = startService(kTermService);

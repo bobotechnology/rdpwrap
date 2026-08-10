@@ -14,7 +14,8 @@ add_library(rdpwrap SHARED
 
 target_compile_features(rdpwrap PRIVATE cxx_std_17)
 target_compile_definitions(rdpwrap PRIVATE
-  UNICODE _UNICODE _WINDOWS _USRDLL RDPWRAP_EXPORTS)
+  UNICODE _UNICODE _WINDOWS _USRDLL RDPWRAP_EXPORTS
+  WINVER=0x0600 _WIN32_WINNT=0x0600)
 target_include_directories(rdpwrap PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/cpp_configparser/include")

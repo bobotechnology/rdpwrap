@@ -19,7 +19,8 @@ add_executable(RDP_CnC WIN32
   src-RDP_CnC/app.manifest
 )
 target_compile_features(RDP_CnC PRIVATE cxx_std_17)
-target_compile_definitions(RDP_CnC PRIVATE UNICODE _UNICODE _WIN32_WINNT=0x0A00)
+target_compile_definitions(RDP_CnC PRIVATE
+  UNICODE _UNICODE WINVER=0x0600 _WIN32_WINNT=0x0600)
 target_link_libraries(RDP_CnC PRIVATE advapi32 version user32 shell32 ws2_32 wtsapi32 comctl32 uxtheme)
 set_target_properties(RDP_CnC PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 add_custom_command(TARGET RDP_CnC POST_BUILD

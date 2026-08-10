@@ -42,6 +42,22 @@ static double g_uiScale=1.0;
 static std::vector<HWND> g_headingControls;
 static bool g_chinese=false;
 
+static UINT windowDpi(HWND window) {
+    using GetDpiForWindowFunction = UINT(WINAPI*)(HWND);
+    const HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    const auto getDpiForWindow = user32
+        ? reinterpret_cast<GetDpiForWindowFunction>(
+              GetProcAddress(user32, "GetDpiForWindow"))
+        : nullptr;
+    if (getDpiForWindow) return getDpiForWindow(window);
+
+    HDC device = GetDC(window);
+    if (!device) return 96;
+    const int dpi = GetDeviceCaps(device, LOGPIXELSX);
+    ReleaseDC(window, device);
+    return dpi > 0 ? static_cast<UINT>(dpi) : 96;
+}
+
 // Use Simplified Chinese on Chinese Windows. The command-line switches
 // /lang=zh-CN and /lang=en-US can be used to override the system language.
 static const wchar_t* tr(const wchar_t* english, const wchar_t* chinese) {
@@ -87,7 +103,7 @@ static void modernizeUi() {
     if (done) return;
     done = true;
 
-    UINT dpi = GetDpiForWindow(g_hwnd);
+    UINT dpi = windowDpi(g_hwnd);
     g_uiScale = (double)dpi / 96.0;
     RECT original{};
     GetWindowRect(g_hwnd, &original);
