@@ -113,7 +113,9 @@ The `Build MSVC release` GitHub Actions workflow builds all four wrapper
 architectures and uploads them on every push and pull request. Its Win32
 aggregate Installer contains the freshly built `RDPW32`, `RDPW64`, `RDPWARM`,
 and `RDPWARM64` payloads. On ARM systems it selects `rdpwrap-arm-kb.ini` and
-does not extract the x86/x64-only legacy system-component resources.
+does not extract the x86/x64-only legacy system-component resources. The
+workflow also produces a native ARM32 `RDPWInst-arm32.exe`; the Win32 aggregate
+Installer remains the broadly compatible default on ARM64 Windows.
 
 ## Installer commands
 

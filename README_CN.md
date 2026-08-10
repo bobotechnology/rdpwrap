@@ -101,7 +101,8 @@ cmake --build build-msvc32 --config Release --parallel
 `Build MSVC release` GitHub Actions 工作流会在每次 push 和 pull request 时构建全部四种
 Wrapper 架构并上传产物。Win32 聚合 Installer 包含本次构建的 `RDPW32`、`RDPW64`、
 `RDPWARM` 和 `RDPWARM64`。在 ARM 系统上会选择 `rdpwrap-arm-kb.ini`，并跳过仅适用于
-x86/x64 的旧系统组件资源。
+x86/x64 的旧系统组件资源。工作流还会生成原生 ARM32 `RDPWInst-arm32.exe`；在 ARM64
+Windows 上仍以兼容范围更广的 Win32 聚合 Installer 作为默认选择。
 
 ## 安装器命令
 
