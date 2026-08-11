@@ -1169,8 +1169,8 @@ void usage() {
         L"-i -o       online install mode (loads latest INI file)\n"
         L"-w          get latest update for INI file\n"
         L"-w URL      get latest update for INI file from custom source\n"
-        L"-u          uninstall wrapper\n"
-        L"-u -k       uninstall wrapper and keep settings\n"
+        L"-u          uninstall wrapper and disable Remote Desktop\n"
+        L"-u -k       uninstall wrapper and keep Remote Desktop/firewall settings\n"
         L"-r          force restart Terminal Services\n";
 }
 

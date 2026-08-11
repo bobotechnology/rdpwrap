@@ -150,8 +150,8 @@ RDPWInst.exe -r
 | `-i` | Install using a validated adjacent or embedded INI. |
 | `-i -o` | Download and validate the current online INI before installation. |
 | `-i -s` | Install the wrapper DLL into System32; not recommended for normal deployments. |
-| `-u` | Uninstall the wrapper and its managed files. |
-| `-u -k` | Uninstall while retaining Terminal Services/firewall configuration. |
+| `-u` | Uninstall the wrapper and managed files, disable Remote Desktop, and remove installer-owned firewall rules. |
+| `-u -k` | Uninstall the wrapper and managed files while preserving the current Remote Desktop setting and installer-owned firewall rules. |
 | `-w` | Update the installed INI from the default HTTPS source. |
 | `-w URL` | Update from a specified HTTPS source. |
 | `-r` | Restart Terminal Services. |
@@ -170,10 +170,10 @@ Release packages normally contain:
 | `RDP_CnC.exe` | Wrapper status and RDP configuration application. |
 | `install.bat` | Online installation shortcut. |
 | `update.bat` | INI update shortcut. |
-| `uninstall.bat` | Safe uninstall shortcut. |
+| `uninstall.bat` | Safe uninstall shortcut (`RDPWInst.exe -u -k`). |
 | `install-arm32.bat` | Native ARM32 installation shortcut. |
 | `update-arm32.bat` | Native ARM32 update shortcut. |
-| `uninstall-arm32.bat` | Native ARM32 uninstall shortcut. |
+| `uninstall-arm32.bat` | Native ARM32 safe uninstall shortcut (`RDPWInst-arm32.exe -u -k`). |
 
 From the extracted release directory:
 
@@ -188,9 +188,15 @@ update-arm32.bat
 uninstall-arm32.bat
 ```
 
-The scripts propagate failures through their exit codes. The uninstaller only
-deletes known project files and keeps a non-empty installation directory rather
-than recursively deleting unknown user files.
+The scripts propagate failures through their exit codes. Both uninstall scripts
+intentionally use `-u -k`: they restore the system `termsrv.dll`, restart
+Terminal Services, remove managed files and the updater, but do not change
+`fDenyTSConnections` or remove the installer-owned firewall rules. Because
+installation enables Remote Desktop and creates those rules, this keeps a remote
+host reachable after uninstall. Run `RDPWInst.exe -u` directly only when Remote
+Desktop should also be disabled and those firewall rules removed. The uninstaller
+only deletes known project files and keeps a non-empty installation directory
+rather than recursively deleting unknown user files.
 
 ## Updates and diagnostics
 

@@ -132,8 +132,8 @@ RDPWInst.exe -r
 | `-i` | 使用通过校验的同目录或内置 INI 安装。 |
 | `-i -o` | 安装前下载并校验当前在线 INI。 |
 | `-i -s` | 把 Wrapper DLL 安装到 System32；普通部署不建议使用。 |
-| `-u` | 卸载 Wrapper 及项目管理的文件。 |
-| `-u -k` | 卸载但保留终端服务和防火墙配置。 |
+| `-u` | 卸载 Wrapper 及项目管理的文件、禁用远程桌面，并删除 Installer 管理的防火墙规则。 |
+| `-u -k` | 卸载 Wrapper 及项目管理的文件，但保留当前远程桌面设置和 Installer 管理的防火墙规则。 |
 | `-w` | 从默认 HTTPS 地址更新已安装的 INI。 |
 | `-w URL` | 从指定 HTTPS 地址更新 INI。 |
 | `-r` | 重启终端服务。 |
@@ -152,10 +152,10 @@ RDPWInst.exe -r
 | `RDP_CnC.exe` | Wrapper 状态及 RDP 配置程序。 |
 | `install.bat` | 在线安装快捷脚本。 |
 | `update.bat` | INI 更新快捷脚本。 |
-| `uninstall.bat` | 安全卸载快捷脚本。 |
+| `uninstall.bat` | 安全卸载快捷脚本（`RDPWInst.exe -u -k`）。 |
 | `install-arm32.bat` | 原生 ARM32 安装快捷脚本。 |
 | `update-arm32.bat` | 原生 ARM32 更新快捷脚本。 |
-| `uninstall-arm32.bat` | 原生 ARM32 卸载快捷脚本。 |
+| `uninstall-arm32.bat` | 原生 ARM32 安全卸载快捷脚本（`RDPWInst-arm32.exe -u -k`）。 |
 
 在解压后的发布目录中运行：
 
@@ -170,8 +170,12 @@ update-arm32.bat
 uninstall-arm32.bat
 ```
 
-脚本会正确返回失败状态。卸载逻辑只删除项目已知文件；如果安装目录中存在
-未知文件，会保留该目录，不再递归删除用户文件。
+脚本会正确返回失败状态。两个卸载脚本都固定使用 `-u -k`：它们会恢复系统
+`termsrv.dll`、重启终端服务、删除项目管理的文件和自动更新器，但不会修改
+`fDenyTSConnections`，也不会删除 Installer 管理的防火墙规则。由于安装过程会启用
+远程桌面并创建这些规则，因此远程主机在卸载后仍可连接。只有明确需要同时禁用
+远程桌面并删除这些防火墙规则时，才应直接运行 `RDPWInst.exe -u`。卸载逻辑只删除
+项目已知文件；如果安装目录中存在未知文件，会保留该目录，不再递归删除用户文件。
 
 ## 更新与问题诊断
 

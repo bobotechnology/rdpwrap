@@ -43,6 +43,13 @@ components.
 RDPWInst.exe [-l|-i[-s][-o]|-w[url]|-u[-k]|-r]
 ```
 
+`-u` restores the system `termsrv.dll`, removes managed files and the updater,
+disables Remote Desktop, and deletes the installer-owned firewall rules.
+`-u -k` performs the wrapper cleanup and Terminal Services restart but keeps
+the current Remote Desktop setting and preserves those firewall rules. Release
+archives use `-u -k` in both uninstall scripts so uninstalling from a remote
+session does not make the host unreachable.
+
 See `RDPWInst.exe` without arguments for the full usage text.
 
 ## Reliability notes
