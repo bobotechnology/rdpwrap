@@ -261,46 +261,192 @@ static bool setDword(const wchar_t* path, const wchar_t* name, DWORD v) {
     return e == ERROR_SUCCESS;
 }
 
-// Wait for service to reach expected state
-static bool waitService(SC_HANDLE service, DWORD expected, DWORD timeoutMs) {
-    DWORD start = GetTickCount();
-    SERVICE_STATUS_PROCESS state{};
+static bool queryServiceState(SC_HANDLE service, SERVICE_STATUS_PROCESS& state) {
     DWORD needed = 0;
-    do {
-        if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, (BYTE*)&state, sizeof(state), &needed))
-            return false;
+    return QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO,
+        reinterpret_cast<BYTE*>(&state), sizeof(state), &needed) != FALSE;
+}
+
+// Follow the SCM wait-hint/checkpoint contract while retaining an overall cap.
+static bool waitService(SC_HANDLE service, DWORD expected, DWORD timeoutMs) {
+    const DWORD start = GetTickCount();
+    DWORD observedState = 0;
+    DWORD checkpoint = 0;
+    DWORD checkpointStart = start;
+
+    for (;;) {
+        SERVICE_STATUS_PROCESS state{};
+        if (!queryServiceState(service, state)) return false;
         if (state.dwCurrentState == expected) return true;
-        Sleep(200);
-    } while (GetTickCount() - start < timeoutMs);
+
+        const DWORD now = GetTickCount();
+        if (now - start >= timeoutMs) return false;
+        if (state.dwCurrentState != observedState) {
+            observedState = state.dwCurrentState;
+            checkpoint = state.dwCheckPoint;
+            checkpointStart = now;
+        } else if (state.dwCheckPoint > checkpoint) {
+            checkpoint = state.dwCheckPoint;
+            checkpointStart = now;
+        } else if (state.dwWaitHint != 0 &&
+                   now - checkpointStart > state.dwWaitHint) {
+            return false;
+        }
+
+        DWORD delay = state.dwWaitHint / 10;
+        delay = std::clamp<DWORD>(delay, 1000, 10000);
+        Sleep((std::min)(delay, timeoutMs - (now - start)));
+    }
+}
+
+// Set stoppedByThisCall only after ControlService accepted this process's
+// stop request. Callers use it to restore exactly the services they stopped.
+static bool stopService(SC_HANDLE service, bool* stoppedByThisCall = nullptr) {
+    if (stoppedByThisCall) *stoppedByThisCall = false;
+
+    SERVICE_STATUS_PROCESS state{};
+    if (!queryServiceState(service, state)) return false;
+    if (state.dwCurrentState == SERVICE_STOPPED) return true;
+    if (state.dwCurrentState == SERVICE_STOP_PENDING)
+        return waitService(service, SERVICE_STOPPED, 30000);
+
+    SERVICE_STATUS status{};
+    if (!ControlService(service, SERVICE_CONTROL_STOP, &status)) {
+        const DWORD error = GetLastError();
+        if (error == ERROR_SERVICE_NOT_ACTIVE) return true;
+        if (error != ERROR_SERVICE_CANNOT_ACCEPT_CTRL ||
+            !queryServiceState(service, state))
+            return false;
+        if (state.dwCurrentState == SERVICE_STOPPED) return true;
+        if (state.dwCurrentState != SERVICE_STOP_PENDING) return false;
+        return waitService(service, SERVICE_STOPPED, 30000);
+    }
+
+    if (stoppedByThisCall) *stoppedByThisCall = true;
+    return waitService(service, SERVICE_STOPPED, 30000);
+}
+
+static bool startService(SC_HANDLE service) {
+    SERVICE_STATUS_PROCESS state{};
+    if (!queryServiceState(service, state)) return false;
+    if (state.dwCurrentState == SERVICE_RUNNING) return true;
+    if (state.dwCurrentState == SERVICE_START_PENDING)
+        return waitService(service, SERVICE_RUNNING, 30000);
+    if (state.dwCurrentState == SERVICE_STOP_PENDING) {
+        if (!waitService(service, SERVICE_STOPPED, 30000)) return false;
+    } else if (state.dwCurrentState != SERVICE_STOPPED) {
+        return false;
+    }
+
+    if (!StartServiceW(service, 0, nullptr) &&
+        GetLastError() != ERROR_SERVICE_ALREADY_RUNNING)
+        return false;
+    return waitService(service, SERVICE_RUNNING, 30000);
+}
+
+// Enumerate only services that must be stopped before their parent.
+static bool activeDependents(SC_HANDLE service, std::vector<std::wstring>& names) {
+    DWORD bytes = 0;
+    DWORD count = 0;
+    if (EnumDependentServicesW(service, SERVICE_ACTIVE, nullptr, 0,
+                               &bytes, &count))
+        return true;
+    if (GetLastError() != ERROR_MORE_DATA || bytes == 0) return false;
+
+    // The active dependent set can change between the sizing and retrieval
+    // calls. Retry with the new required size rather than treating that normal
+    // SCM race as a service-restart failure.
+    for (unsigned attempt = 0; attempt != 3; ++attempt) {
+        std::vector<BYTE> buffer(bytes);
+        auto entries = reinterpret_cast<ENUM_SERVICE_STATUSW*>(buffer.data());
+        DWORD required = 0;
+        count = 0;
+        if (EnumDependentServicesW(service, SERVICE_ACTIVE, entries, bytes,
+                                   &required, &count)) {
+            names.reserve(names.size() + count);
+            for (DWORD index = 0; index < count; ++index)
+                names.emplace_back(entries[index].lpServiceName);
+            return true;
+        }
+        if (GetLastError() != ERROR_MORE_DATA || required <= bytes) return false;
+        bytes = required;
+    }
     return false;
 }
 
-// Restart Terminal Service
+// Stop descendants before their parent. Store only services for which this
+// call accepted a stop request, so they can be restored after the restart.
+static bool stopActiveDependents(SC_HANDLE manager, SC_HANDLE service,
+                                 std::vector<std::wstring>& stoppedServices) {
+    std::vector<std::wstring> names;
+    if (!activeDependents(service, names)) return false;
+
+    constexpr DWORD access = SERVICE_ENUMERATE_DEPENDENTS |
+        SERVICE_QUERY_STATUS | SERVICE_STOP | SERVICE_START;
+    for (const std::wstring& name : names) {
+        SC_HANDLE dependent = OpenServiceW(manager, name.c_str(), access);
+        if (!dependent) return false;
+
+        bool stoppedByThisCall = false;
+        bool ok = stopActiveDependents(manager, dependent, stoppedServices);
+        if (ok) ok = stopService(dependent, &stoppedByThisCall);
+        // Record a successfully submitted stop request even if its wait timed
+        // out. restoreServices() can then wait for the pending transition and
+        // bring it back, rather than leaving a dependent stopped on failure.
+        if (stoppedByThisCall) stoppedServices.emplace_back(name);
+        CloseServiceHandle(dependent);
+        if (!ok) return false;
+    }
+    return true;
+}
+
+static bool restoreServices(SC_HANDLE manager,
+                            const std::vector<std::wstring>& stoppedServices) {
+    bool ok = true;
+    for (auto serviceName = stoppedServices.rbegin();
+         serviceName != stoppedServices.rend(); ++serviceName) {
+        SC_HANDLE service = OpenServiceW(manager, serviceName->c_str(),
+            SERVICE_QUERY_STATUS | SERVICE_START);
+        const bool started = service && startService(service);
+        if (service) CloseServiceHandle(service);
+        ok = started && ok;
+    }
+    return ok;
+}
+
+// Restart Terminal Service while preserving all initially-running dependents.
 static bool restartTermService() {
     SC_HANDLE manager = OpenSCManagerW(nullptr, nullptr, SC_MANAGER_CONNECT);
     if (!manager) return false;
 
-    auto stop = [&](const wchar_t* name) {
-        SC_HANDLE s = OpenServiceW(manager, name, SERVICE_STOP | SERVICE_QUERY_STATUS);
-        if (!s) return GetLastError() == ERROR_SERVICE_DOES_NOT_EXIST;
-        SERVICE_STATUS status{};
-        BOOL ok = ControlService(s, SERVICE_CONTROL_STOP, &status);
-        DWORD error = ok ? ERROR_SUCCESS : GetLastError();
-        bool result = (error == ERROR_SERVICE_NOT_ACTIVE) || ((error == ERROR_SUCCESS) && waitService(s, SERVICE_STOPPED, 30000));
-        CloseServiceHandle(s);
-        return result;
-    };
-
-    bool ok = stop(L"UmRdpService") && stop(L"TermService");
-    SC_HANDLE term = OpenServiceW(manager, L"TermService", SERVICE_START | SERVICE_QUERY_STATUS);
-    if (term) {
-        BOOL started = StartServiceW(term, 0, nullptr);
-        DWORD error = started ? ERROR_SUCCESS : GetLastError();
-        ok = ok && (error == ERROR_SUCCESS || error == ERROR_SERVICE_ALREADY_RUNNING) && waitService(term, SERVICE_RUNNING, 30000);
-        CloseServiceHandle(term);
-    } else {
-        ok = false;
+    constexpr DWORD access = SERVICE_ENUMERATE_DEPENDENTS |
+        SERVICE_QUERY_STATUS | SERVICE_STOP | SERVICE_START;
+    SC_HANDLE term = OpenServiceW(manager, L"TermService", access);
+    if (!term) {
+        CloseServiceHandle(manager);
+        MessageBoxW(g_hwnd,
+                    tr(L"Could not open Terminal Services through Service Control Manager.",
+                       L"无法通过服务控制管理器打开远程桌面服务。"),
+                    tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
+        return false;
     }
+
+    std::vector<std::wstring> stoppedServices;
+    const bool dependentsStopped =
+        stopActiveDependents(manager, term, stoppedServices);
+    const bool termStopped = dependentsStopped && stopService(term);
+    // Always check/start TermService: if a previous stop failed after stopping
+    // one dependent, this keeps the host reachable before restoration.
+    const bool termStarted = startService(term);
+    // Attempt restoration even if the parent start/wait reported failure;
+    // StartService may have succeeded while the status transition was still
+    // settling, and leaving a previously-running dependent stopped is worse.
+    const bool dependentsRestored =
+        restoreServices(manager, stoppedServices);
+    const bool ok = dependentsStopped && termStopped && termStarted &&
+        dependentsRestored;
+
+    CloseServiceHandle(term);
     CloseServiceHandle(manager);
 
     if (!ok) MessageBoxW(g_hwnd,
@@ -318,7 +464,11 @@ static bool updateWrapperFirewallPort(int port) {
         CLSCTX_INPROC_SERVER, __uuidof(INetFwPolicy2),
         reinterpret_cast<void**>(&policy));
     INetFwRules* rules = nullptr;
-    if (SUCCEEDED(result)) result = policy->get_Rules(&rules);
+    if (SUCCEEDED(result) && policy) {
+        result = policy->get_Rules(&rules);
+    } else if (SUCCEEDED(result)) {
+        result = E_POINTER;
+    }
 
     auto updateRule = [rules, &port](const wchar_t* name) {
         if (!rules) return false;
@@ -327,7 +477,10 @@ static bool updateWrapperFirewallPort(int port) {
         INetFwRule* rule = nullptr;
         const HRESULT itemResult = rules->Item(ruleName, &rule);
         SysFreeString(ruleName);
-        if (FAILED(itemResult) || !rule) return false;
+        if (FAILED(itemResult) || !rule) {
+            if (rule) rule->Release();
+            return false;
+        }
 
         const std::wstring text = std::to_wstring(port);
         BSTR localPorts = SysAllocString(text.c_str());
@@ -355,12 +508,16 @@ static bool runInstallerUpdate(const std::wstring& path) {
     execute.lpFile = path.c_str();
     execute.lpParameters = L"-w";
     execute.nShow = SW_SHOWNORMAL;
-    if (!ShellExecuteExW(&execute) || !execute.hProcess) {
+    if (!ShellExecuteExW(&execute)) {
         MessageBoxW(g_hwnd,
                     tr(L"Could not start RDPWInst.exe.", L"无法启动 RDPWInst.exe。"),
                     tr(L"Update error", L"更新错误"), MB_OK | MB_ICONERROR);
         return false;
     }
+    // ShellExecuteExW may succeed without returning hProcess (for example,
+    // when an invocation is completed through DDE). The updater was still
+    // launched, but cannot be synchronously observed in that case.
+    if (!execute.hProcess) return true;
 
     const DWORD wait = WaitForSingleObject(execute.hProcess, 120000);
     DWORD code = ERROR_GEN_FAILURE;

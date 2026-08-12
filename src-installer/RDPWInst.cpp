@@ -1278,8 +1278,12 @@ bool connectOutputPipe(HANDLE pipe, HANDLE childProcess) {
                 DWORD transferred = 0;
                 connected = GetOverlappedResult(pipe, &connection, &transferred, FALSE) != FALSE;
             } else {
+                // CancelIoEx is Vista-or-later, which is this Installer's
+                // documented minimum. Completion must be collected before
+                // the OVERLAPPED event and pipe handle are released.
                 CancelIoEx(pipe, &connection);
-                WaitForSingleObject(connection.hEvent, INFINITE);
+                DWORD transferred = 0;
+                GetOverlappedResult(pipe, &connection, &transferred, TRUE);
             }
         }
     }
@@ -1294,8 +1298,16 @@ bool readOutputPipe(HANDLE pipe, BYTE* buffer, DWORD capacity, DWORD& count) {
     if (!operation.hEvent) return false;
     BOOL ok = ReadFile(pipe, buffer, capacity, &count, &operation);
     if (!ok && GetLastError() == ERROR_IO_PENDING) {
-        if (WaitForSingleObject(operation.hEvent, INFINITE) == WAIT_OBJECT_0)
+        const DWORD wait = WaitForSingleObject(operation.hEvent, INFINITE);
+        if (wait == WAIT_OBJECT_0) {
             ok = GetOverlappedResult(pipe, &operation, &count, FALSE);
+        } else {
+            // Never release the event or OVERLAPPED storage while the I/O may
+            // still be pending. This path is only for an abnormal wait error.
+            CancelIoEx(pipe, &operation);
+            DWORD transferred = 0;
+            GetOverlappedResult(pipe, &operation, &transferred, TRUE);
+        }
     }
     CloseHandle(operation.hEvent);
     return ok != FALSE;
