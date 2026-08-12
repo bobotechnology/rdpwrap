@@ -6,6 +6,7 @@
 #include <shellapi.h>
 #include <winver.h>
 #include <commctrl.h>
+#include <netfw.h>
 #include <uxtheme.h>
 #include <string>
 #include <vector>
@@ -309,64 +310,73 @@ static bool restartTermService() {
     return ok;
 }
 
-// Run process with hidden window
-static bool runProcess(const std::wstring& cmd) {
-    STARTUPINFOW si{};
-    si.cb = sizeof(si);
-    PROCESS_INFORMATION pi{};
-    std::vector<wchar_t> buf(cmd.begin(), cmd.end());
-    buf.push_back(0);
-    si.dwFlags = STARTF_USESHOWWINDOW;
-    si.wShowWindow = SW_HIDE;
-
-    if (!CreateProcessW(nullptr, buf.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi)) {
-        MessageBoxW(g_hwnd, tr(L"CreateProcess failed.", L"创建进程失败。"),
-                    tr(L"Error", L"错误"), MB_ICONERROR);
-        return false;
-    }
-
-    CloseHandle(pi.hThread);
-    const DWORD wait = WaitForSingleObject(pi.hProcess, 30000);
-    if (wait != WAIT_OBJECT_0) {
-        if (wait == WAIT_TIMEOUT) {
-            TerminateProcess(pi.hProcess, ERROR_TIMEOUT);
-            WaitForSingleObject(pi.hProcess, 5000);
-            MessageBoxW(g_hwnd, tr(L"The command timed out after 30 seconds.", L"命令执行超过 30 秒，已超时。"),
-                        tr(L"Command timeout", L"命令超时"), MB_OK | MB_ICONERROR);
-        } else {
-            MessageBoxW(g_hwnd, tr(L"Could not wait for the command to finish.", L"无法等待命令执行完成。"),
-                        tr(L"Command error", L"命令错误"), MB_OK | MB_ICONERROR);
-        }
-        CloseHandle(pi.hProcess);
-        return false;
-    }
-    DWORD code = 1;
-    if (!GetExitCodeProcess(pi.hProcess, &code)) code = GetLastError();
-    CloseHandle(pi.hProcess);
-
-    if (code != 0) MessageBoxW(g_hwnd,
-                               tr(L"The command returned a non-zero exit code.", L"命令返回了非零退出代码。"),
-                               tr(L"Command error", L"命令错误"), MB_OK | MB_ICONERROR);
-    return code == 0;
-}
-
-// Execute command with special handling
-static bool execWait(const std::wstring& cmd) {
-    if (cmd.rfind(L"taskkill /F /T /FI \"SERVICES eq ", 0) == 0) return true;
-    if (cmd == L"net start TermService") return restartTermService();
-
-    return runProcess(cmd);
-}
-
 static bool updateWrapperFirewallPort(int port) {
     if (port < 1 || port > 65535) return false;
 
-    const std::wstring netsh = L"\"" + expandEnv(L"%SystemRoot%\\System32\\netsh.exe") +
-                               L"\" advfirewall firewall set rule name=";
-    const std::wstring value = std::to_wstring(port);
-    const bool tcp = runProcess(netsh + L"\"RDP Wrapper TCP 3389\" protocol=TCP new localport=" + value);
-    const bool udp = runProcess(netsh + L"\"RDP Wrapper UDP 3389\" protocol=UDP new localport=" + value);
+    INetFwPolicy2* policy = nullptr;
+    HRESULT result = CoCreateInstance(__uuidof(NetFwPolicy2), nullptr,
+        CLSCTX_INPROC_SERVER, __uuidof(INetFwPolicy2),
+        reinterpret_cast<void**>(&policy));
+    INetFwRules* rules = nullptr;
+    if (SUCCEEDED(result)) result = policy->get_Rules(&rules);
+
+    auto updateRule = [rules, &port](const wchar_t* name) {
+        if (!rules) return false;
+        BSTR ruleName = SysAllocString(name);
+        if (!ruleName) return false;
+        INetFwRule* rule = nullptr;
+        const HRESULT itemResult = rules->Item(ruleName, &rule);
+        SysFreeString(ruleName);
+        if (FAILED(itemResult) || !rule) return false;
+
+        const std::wstring text = std::to_wstring(port);
+        BSTR localPorts = SysAllocString(text.c_str());
+        const HRESULT updateResult = localPorts
+            ? rule->put_LocalPorts(localPorts)
+            : E_OUTOFMEMORY;
+        if (localPorts) SysFreeString(localPorts);
+        rule->Release();
+        return SUCCEEDED(updateResult);
+    };
+
+    const bool tcp = SUCCEEDED(result) && updateRule(L"RDP Wrapper TCP 3389");
+    const bool udp = SUCCEEDED(result) && updateRule(L"RDP Wrapper UDP 3389");
+    if (rules) rules->Release();
+    if (policy) policy->Release();
     return tcp && udp;
+}
+
+static bool runInstallerUpdate(const std::wstring& path) {
+    SHELLEXECUTEINFOW execute{};
+    execute.cbSize = sizeof(execute);
+    execute.fMask = SEE_MASK_NOCLOSEPROCESS | SEE_MASK_NOASYNC;
+    execute.hwnd = g_hwnd;
+    execute.lpVerb = L"open";
+    execute.lpFile = path.c_str();
+    execute.lpParameters = L"-w";
+    execute.nShow = SW_SHOWNORMAL;
+    if (!ShellExecuteExW(&execute) || !execute.hProcess) {
+        MessageBoxW(g_hwnd,
+                    tr(L"Could not start RDPWInst.exe.", L"无法启动 RDPWInst.exe。"),
+                    tr(L"Update error", L"更新错误"), MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    const DWORD wait = WaitForSingleObject(execute.hProcess, 120000);
+    DWORD code = ERROR_GEN_FAILURE;
+    const bool completed = wait == WAIT_OBJECT_0 &&
+        GetExitCodeProcess(execute.hProcess, &code);
+    CloseHandle(execute.hProcess);
+    if (completed && code == ERROR_SUCCESS) return true;
+
+    MessageBoxW(g_hwnd,
+                wait == WAIT_TIMEOUT
+                    ? tr(L"RDPWInst.exe is still running. Check its window for progress.",
+                         L"RDPWInst.exe 仍在运行，请查看其窗口了解进度。")
+                    : tr(L"RDPWInst.exe did not complete successfully.",
+                         L"RDPWInst.exe 未成功完成。"),
+                tr(L"Update warning", L"更新警告"), MB_OK | MB_ICONWARNING);
+    return false;
 }
 
 // Get the numeric VERSIONINFO value. This is used for termsrv.dll because
@@ -751,15 +761,14 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
                 MessageBoxW(h, tr(L"RDPWInst.exe not found", L"未找到 RDPWInst.exe"),
                             tr(L"Error", L"错误"), MB_ICONERROR);
             else
-                execWait(L"\"" + inst + L"\" -w");
+                runInstallerUpdate(inst);
             status();
         }
         // Restart button
         else if (id == IDC_RESTART) {
             if (MessageBoxW(h, tr(L"Are you sure you want to restart Terminal Server?", L"确定要重启远程桌面服务吗？"),
                             tr(L"Warning", L"警告"), MB_YESNO | MB_ICONWARNING) == IDYES) {
-                execWait(L"taskkill /F /T /FI \"SERVICES eq UmTermService\"");
-                execWait(L"net start TermService");
+                restartTermService();
                 status();
             }
         }
@@ -839,12 +848,18 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
 }
 
 // Main entry point
-#define wWinMain rdpMain
 int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR commandLine, int n) {
     selectLanguage(commandLine);
 
+    const HRESULT comResult = CoInitializeEx(nullptr,
+        COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+    if (FAILED(comResult)) return 10;
+
     INITCOMMONCONTROLSEX ic{sizeof(ic), ICC_TAB_CLASSES};
-    if (!InitCommonControlsEx(&ic)) return 11;
+    if (!InitCommonControlsEx(&ic)) {
+        CoUninitialize();
+        return 11;
+    }
 
     WNDCLASSW wc{};
     wc.lpfnWndProc = wndProc;
@@ -858,7 +873,10 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR commandLine, int n) {
                           tr(L"Remote Desktop Protocol Configuration", L"RDP Wrapper 配置工具"),
                           WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
                           0, 0, 570, 480, nullptr, nullptr, hi, nullptr);
-    if (!g_hwnd) return 12;
+    if (!g_hwnd) {
+        CoUninitialize();
+        return 12;
+    }
 
     addHeading(tr(L"System status", L"系统状态"), 16, 10, 180);
     add(L"STATIC", tr(L"Wrapper", L"RDP Wrapper"), 0, 0, 16, 39, 115, 20);
@@ -949,5 +967,6 @@ int WINAPI wWinMain(HINSTANCE hi, HINSTANCE, LPWSTR commandLine, int n) {
         DispatchMessageW(&msg);
     }
 
+    CoUninitialize();
     return (int)msg.wParam;
 }

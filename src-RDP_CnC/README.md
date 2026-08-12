@@ -9,16 +9,6 @@ launches local `mstsc` tests, updates the INI, and restarts TermService.
 This directory contains the C++17 Win32 configuration utility. The repository
 root owns the CMake project.
 
-## Build with MinGW
-
-```powershell
-cmake -S . -B build -G "MinGW Makefiles"
-cmake --build build --config Release -j
-```
-
-Run these commands from the repository root. The executable is generated at
-`build/bin/RDP_CnC.exe`.
-
 ## Build with Visual Studio
 
 ```powershell
@@ -28,6 +18,10 @@ cmake --build build-vs --config Release
 
 The executable requests administrator privileges because its settings are
 stored below `HKEY_LOCAL_MACHINE` and service control also requires elevation.
+The application uses the Service Control Manager and Windows Firewall COM APIs
+directly. Its INI update action launches only the adjacent `RDPWInst.exe` with
+the fixed `-w` argument; it does not provide a general-purpose hidden command
+runner.
 
 ## Language
 

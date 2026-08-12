@@ -104,6 +104,26 @@ foreach ($binary in $releaseBinaries) {
     }
 }
 
+# RDP_CnC is a fixed-purpose configuration utility. Keep general command
+# execution, downloader, and process-injection APIs out of its import surface.
+$rdpCncImports = (& $dumpbin.FullName /nologo /imports $rdpCnc 2>&1 | Out-String)
+if ($LASTEXITCODE -ne 0) { throw "dumpbin failed for $rdpCnc" }
+$forbiddenRdpCncImports = @(
+    "CreateProcessA",
+    "CreateProcessW",
+    "WinExec",
+    "URLDownloadToFileA",
+    "URLDownloadToFileW",
+    "VirtualAllocEx",
+    "WriteProcessMemory",
+    "CreateRemoteThread"
+)
+foreach ($api in $forbiddenRdpCncImports) {
+    if ($rdpCncImports -match "\b$([regex]::Escape($api))\b") {
+        throw "Unexpected general-purpose process API $api found in $rdpCnc"
+    }
+}
+
 $dist = Join-Path $root "dist"
 if (Test-Path -LiteralPath $dist) {
     $resolvedDist = (Resolve-Path -LiteralPath $dist).Path
