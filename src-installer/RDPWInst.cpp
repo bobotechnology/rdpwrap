@@ -31,7 +31,7 @@ namespace {
 constexpr wchar_t kTermService[] = L"TermService";
 constexpr wchar_t kDefaultIniUrl[] = L"https://api.rpyf.top/rdpwrap.ini";
 constexpr wchar_t kDefaultArmIniUrl[] =
-    L"https://raw.githubusercontent.com/bobotechnology/rdpwrap/master/res/rdpwrap-arm-kb.ini";
+    L"https://api.rpyf.top/rdpwrap-arm-kb.ini";
 constexpr size_t kMaximumIniBytes = 16 * 1024 * 1024;
 constexpr DWORD kNetworkTimeoutMs = 15000;
 constexpr DWORD kServiceTimeoutMs = 30000;
