@@ -7,7 +7,9 @@
 #include <winver.h>
 #include <commctrl.h>
 #include <netfw.h>
+#include <process.h>
 #include <uxtheme.h>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -27,6 +29,9 @@ enum : int {
     IDC_MSTSC_MODE
 };
 
+// Private UI-thread notification posted after the service worker completes.
+constexpr UINT WM_RESTART_COMPLETE = WM_APP + 1;
+
 // Settings structure
 struct Settings {
     bool allow=false, single=false, custom=false, hide=false;
@@ -42,6 +47,7 @@ static HBRUSH g_backgroundBrush=nullptr;
 static double g_uiScale=1.0;
 static std::vector<HWND> g_headingControls;
 static bool g_chinese=false;
+static bool g_restartInProgress=false;
 
 static UINT windowDpi(HWND window) {
     using GetDpiForWindowFunction = UINT(WINAPI*)(HWND);
@@ -424,10 +430,6 @@ static bool restartTermService() {
     SC_HANDLE term = OpenServiceW(manager, L"TermService", access);
     if (!term) {
         CloseServiceHandle(manager);
-        MessageBoxW(g_hwnd,
-                    tr(L"Could not open Terminal Services through Service Control Manager.",
-                       L"无法通过服务控制管理器打开远程桌面服务。"),
-                    tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -448,12 +450,57 @@ static bool restartTermService() {
 
     CloseServiceHandle(term);
     CloseServiceHandle(manager);
-
-    if (!ok) MessageBoxW(g_hwnd,
-                         tr(L"Could not restart TermService through Service Control Manager.",
-                            L"无法通过服务控制管理器重启 TermService。"),
-                         tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
     return ok;
+}
+
+// Only the UI thread calls this helper. Preventing the window from closing is
+// important: terminating the process while its worker has stopped TermService
+// could leave a remote host temporarily unreachable.
+static void setRestartUi(HWND window, bool restarting) {
+    HWND restart = GetDlgItem(window, IDC_RESTART);
+    if (restart) {
+        SetWindowTextW(restart, restarting
+            ? tr(L"Restarting...", L"正在重启...")
+            : tr(L"Restart service", L"重启服务"));
+        EnableWindow(restart, !restarting);
+    }
+    HWND update = GetDlgItem(window, IDC_UPDATE);
+    if (update) EnableWindow(update, !restarting);
+    HWND close = GetDlgItem(window, IDC_CANCEL);
+    if (close) EnableWindow(close, !restarting);
+
+    HMENU systemMenu = GetSystemMenu(window, FALSE);
+    if (systemMenu) {
+        EnableMenuItem(systemMenu, SC_CLOSE, MF_BYCOMMAND |
+            (restarting ? MF_GRAYED : MF_ENABLED));
+        DrawMenuBar(window);
+    }
+}
+
+// The worker performs only service-control work. It never accesses controls or
+// other UI state; completion is marshalled back to the window message queue.
+static unsigned __stdcall restartTermServiceWorker(void* parameter) {
+    const HWND window = static_cast<HWND>(parameter);
+    const bool ok = restartTermService();
+    PostMessageW(window, WM_RESTART_COMPLETE, ok ? TRUE : FALSE, 0);
+    return 0;
+}
+
+static bool beginTermServiceRestart(HWND window) {
+    if (g_restartInProgress) return false;
+
+    g_restartInProgress = true;
+    setRestartUi(window, true);
+    const uintptr_t thread = _beginthreadex(nullptr, 0,
+        restartTermServiceWorker, window, 0, nullptr);
+    if (!thread) {
+        g_restartInProgress = false;
+        setRestartUi(window, false);
+        return false;
+    }
+
+    CloseHandle(reinterpret_cast<HANDLE>(thread));
+    return true;
 }
 
 static bool updateWrapperFirewallPort(int port) {
@@ -860,6 +907,20 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         }
     }
 
+    if (m == WM_RESTART_COMPLETE) {
+        const bool ok = wp != 0;
+        g_restartInProgress = false;
+        setRestartUi(h, false);
+        status();
+        if (!ok) {
+            MessageBoxW(h,
+                        tr(L"Could not restart TermService through Service Control Manager.",
+                           L"无法通过服务控制管理器重启 TermService。"),
+                        tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
+        }
+        return 0;
+    }
+
     if (m == WM_COMMAND) {
         int id = LOWORD(wp);
 
@@ -924,9 +985,12 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         // Restart button
         else if (id == IDC_RESTART) {
             if (MessageBoxW(h, tr(L"Are you sure you want to restart Terminal Server?", L"确定要重启远程桌面服务吗？"),
-                            tr(L"Warning", L"警告"), MB_YESNO | MB_ICONWARNING) == IDYES) {
-                restartTermService();
-                status();
+                            tr(L"Warning", L"警告"), MB_YESNO | MB_ICONWARNING) == IDYES &&
+                !beginTermServiceRestart(h)) {
+                MessageBoxW(h,
+                            tr(L"Could not start the background service-restart task.",
+                               L"无法启动后台服务重启任务。"),
+                            tr(L"Service error", L"服务错误"), MB_OK | MB_ICONERROR);
             }
         }
         // Port input validation
@@ -973,6 +1037,13 @@ static LRESULT CALLBACK wndProc(HWND h, UINT m, WPARAM wp, LPARAM lp) {
         return 0;
     }
     else if (m == WM_CLOSE) {
+        if (g_restartInProgress) {
+            MessageBoxW(h,
+                        tr(L"Terminal Services is restarting. Please wait before closing this window.",
+                           L"远程桌面服务正在重启，请等待完成后再关闭窗口。"),
+                        tr(L"Restarting service", L"正在重启服务"), MB_OK | MB_ICONINFORMATION);
+            return 0;
+        }
         if (IsWindowEnabled(GetDlgItem(h, IDC_APPLY)) &&
             MessageBoxW(h, tr(L"Settings are not saved. Do you want to exit?", L"设置尚未保存，确定要退出吗？"),
                         tr(L"Warning", L"警告"),
