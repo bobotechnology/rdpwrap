@@ -11731,6 +11731,20 @@ SLInitHook.x64=1
 SLInitOffset.x64=B9754
 SLInitFunc.x64=New_CSLQuery_Initialize
 
+[10.0.26100.8968]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=957E1
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=A2A8B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=9FC2D
+DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
+SLInitHook.x64=1
+SLInitOffset.x64=B6B58
+SLInitFunc.x64=New_CSLQuery_Initialize
+
 [10.0.26100.8972]
 LocalOnlyPatch.x64=1
 LocalOnlyOffset.x64=957E1
@@ -11757,6 +11771,34 @@ DefPolicyOffset.x64=A1CBD
 DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
 SLInitHook.x64=1
 SLInitOffset.x64=B8CA4
+SLInitFunc.x64=New_CSLQuery_Initialize
+
+[10.0.26100.9202]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=99E01
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=A697B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=A3B1D
+DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
+SLInitHook.x64=1
+SLInitOffset.x64=BAB04
+SLInitFunc.x64=New_CSLQuery_Initialize
+
+[10.0.26100.9212]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=99B91
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=A670B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=A38AD
+DefPolicyCode.x64=CDefPolicy_Query_r9d_rdi_jmp
+SLInitHook.x64=1
+SLInitOffset.x64=BA894
 SLInitFunc.x64=New_CSLQuery_Initialize
 
 [10.0.26100.9267]
@@ -11816,6 +11858,20 @@ SLInitOffset.x64=B2D78
 SLInitFunc.x64=New_CSLQuery_Initialize
 
 [10.0.26100.33158]
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=92131
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=9ED9B
+SingleUserCode.x64=mov_eax_1_nop_2
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=9C1BF
+DefPolicyCode.x64=CDefPolicy_Query_eax_rcx_jmp
+SLInitHook.x64=1
+SLInitOffset.x64=B2AE8
+SLInitFunc.x64=New_CSLQuery_Initialize
+
+[10.0.26100.33296]
 LocalOnlyPatch.x64=1
 LocalOnlyOffset.x64=92131
 LocalOnlyCode.x64=jmpshort
@@ -20470,6 +20526,16 @@ bMultimonAllowed.x64  =12D268
 ulMaxDebugSessions.x64=12D270
 bFUSEnabled.x64       =12D274
 
+[10.0.26100.8968-SLInit]
+bInitialized.x64      =129148
+bServerSku.x64        =12914C
+lMaxUserSessions.x64  =129150
+bAppServerAllowed.x64 =129158
+bRemoteConnAllowed.x64=129164
+bMultimonAllowed.x64  =129168
+ulMaxDebugSessions.x64=129170
+bFUSEnabled.x64       =129174
+
 [10.0.26100.8972-SLInit]
 bServerSku.x64=12914C
 bRemoteConnAllowed.x64=129164
@@ -20489,6 +20555,26 @@ bMultimonAllowed.x64=12C208
 lMaxUserSessions.x64=12C1F0
 ulMaxDebugSessions.x64=12C210
 bInitialized.x64=12C1E8
+
+[10.0.26100.9202-SLInit]
+bInitialized.x64      =12E2C0
+bServerSku.x64        =12E2C4
+lMaxUserSessions.x64  =12E2C8
+bAppServerAllowed.x64 =12E2D0
+bRemoteConnAllowed.x64=12E2DC
+bMultimonAllowed.x64  =12E2E0
+ulMaxDebugSessions.x64=12E2E8
+bFUSEnabled.x64       =12E2EC
+
+[10.0.26100.9212-SLInit]
+bInitialized.x64      =12E2C0
+bServerSku.x64        =12E2C4
+lMaxUserSessions.x64  =12E2C8
+bAppServerAllowed.x64 =12E2D0
+bRemoteConnAllowed.x64=12E2DC
+bMultimonAllowed.x64  =12E2E0
+ulMaxDebugSessions.x64=12E2E8
+bFUSEnabled.x64       =12E2EC
 
 [10.0.26100.9267-SLInit]
 bInitialized.x64      =12D240
@@ -20539,6 +20625,16 @@ bMultimonAllowed.x64=125F8C
 lMaxUserSessions.x64=125F78
 ulMaxDebugSessions.x64=125F94
 bInitialized.x64=125F70
+
+[10.0.26100.33296-SLInit]
+bInitialized.x64      =125F70
+bServerSku.x64        =125F74
+lMaxUserSessions.x64  =125F78
+bAppServerAllowed.x64 =125F80
+bRemoteConnAllowed.x64=125F88
+bMultimonAllowed.x64  =125F8C
+ulMaxDebugSessions.x64=125F94
+bFUSEnabled.x64       =125F98
 
 [10.0.26200.5001-SLInit]
 bInitialized.x64      =11ADF0
