@@ -4673,20 +4673,18 @@ SLInitOffset.x64=2FF3C
 SLInitFunc.x64=New_CSLQuery_Initialize
 
 [10.0.17763.9020]
-; no x86 section
-
-LocalOnlyPatch.x64 =1
-LocalOnlyOffset.x64 =8E111
-LocalOnlyCode.x64 =jmpshort
-SingleUserPatch.x64 =1
-SingleUserOffset.x64 =16F62
-SingleUserCode.x64 =mov_eax_1_nop_1
-DefPolicyPatch.x64 =1
-DefPolicyOffset.x64 =20435
-DefPolicyCode.x64 =CDefPolicy_Query_eax_rcx
-SLInitHook.x64 =1
-SLInitOffset.x64 =2FF3C
-SLInitFunc.x64 =New_CSLQuery_Initialize
+LocalOnlyPatch.x64=1
+LocalOnlyOffset.x64=8E111
+LocalOnlyCode.x64=jmpshort
+SingleUserPatch.x64=1
+SingleUserOffset.x64=16F62
+SingleUserCode.x64=mov_eax_1_nop_1
+DefPolicyPatch.x64=1
+DefPolicyOffset.x64=20435
+DefPolicyCode.x64=CDefPolicy_Query_eax_rcx
+SLInitHook.x64=1
+SLInitOffset.x64=2FF3C
+SLInitFunc.x64=New_CSLQuery_Initialize
 
 [10.0.17763.9121]
 SingleUserPatch.x64=1
@@ -15570,14 +15568,14 @@ ulMaxDebugSessions.x64=11C284
 bFUSEnabled.x64       =11C288
 
 [10.0.17763.9020-SLInit]
-bServerSku.x64 =11C26C
-bRemoteConnAllowed.x64=11C27C
-bFUSEnabled.x64 =11C288
+bInitialized.x64      =11C268
+bServerSku.x64        =11C26C
+lMaxUserSessions.x64  =11C270
 bAppServerAllowed.x64 =11C278
-bMultimonAllowed.x64 =11C280
-lMaxUserSessions.x64 =11C270
+bRemoteConnAllowed.x64=11C27C
+bMultimonAllowed.x64  =11C280
 ulMaxDebugSessions.x64=11C284
-bInitialized.x64 =11C268
+bFUSEnabled.x64       =11C288
 
 [10.0.17763.9121-SLInit]
 bServerSku.x64=11C26C
@@ -16639,14 +16637,14 @@ ulMaxDebugSessions.x64=1250B4
 bFUSEnabled.x64       =1250B8
 
 [10.0.19041.7548-SLInit]
-bServerSku.x64        =125098
-bRemoteConnAllowed.x64=1250AC
-bFUSEnabled.x64       =1250B8
-bAppServerAllowed.x64 =1250A0
-bMultimonAllowed.x64  =1250B0
-lMaxUserSessions.x64  =12509C
-ulMaxDebugSessions.x64=1250B4
 bInitialized.x64      =125094
+bServerSku.x64        =125098
+lMaxUserSessions.x64  =12509C
+bAppServerAllowed.x64 =1250A0
+bRemoteConnAllowed.x64=1250AC
+bMultimonAllowed.x64  =1250B0
+ulMaxDebugSessions.x64=1250B4
+bFUSEnabled.x64       =1250B8
 
 [10.0.19041.7663-SLInit]
 bInitialized.x64      =125094
