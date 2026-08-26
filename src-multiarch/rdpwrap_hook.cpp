@@ -120,43 +120,32 @@ HRESULT WINAPI New_CSLQuery_Initialize() {
 
   if (g_IniParser->has_section(sect)) {
 #if defined(_M_ARM64)
-    bServerSku = (DWORD*)(TermSrvBase +
-                          INIReadDWordHex(*g_IniParser, sect, "bServerSku.arm64", 0));
-    bRemoteConnAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bRemoteConnAllowed.arm64", 0));
-    bFUSEnabled =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bFUSEnabled.arm64", 0));
-    bAppServerAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bAppServerAllowed.arm64", 0));
-    bMultimonAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bMultimonAllowed.arm64", 0));
-    lMaxUserSessions = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "lMaxUserSessions.arm64", 0));
-    ulMaxDebugSessions =
-        (DWORD*)(TermSrvBase +
-                 INIReadDWordHex(*g_IniParser, sect, "ulMaxDebugSessions.arm64", 0));
-    bInitialized =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bInitialized.arm64", 0));
+    const char* arch_suffix = "arm64";
 #elif defined(_M_ARM)
-    bServerSku =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bServerSku.arm", 0));
-    bRemoteConnAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bRemoteConnAllowed.arm", 0));
-    bFUSEnabled =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bFUSEnabled.arm", 0));
-    bAppServerAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bAppServerAllowed.arm", 0));
-    bMultimonAllowed = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bMultimonAllowed.arm", 0));
-    lMaxUserSessions = (DWORD*)(
-        TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "lMaxUserSessions.arm", 0));
-    ulMaxDebugSessions =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "ulMaxDebugSessions.arm", 0));
-    bInitialized =
-        (DWORD*)(TermSrvBase + INIReadDWordHex(*g_IniParser, sect, "bInitialized.arm", 0));
+    const char* arch_suffix = "arm";
+#elif defined(_M_X64)
+    const char* arch_suffix = "x64";
+#elif defined(_M_IX86)
+    const char* arch_suffix = "x86";
 #else
-    // x86/x64: SLInit hook not used; keep all pointers NULL
+#error Unsupported architecture
 #endif
+    char key[64] = {0};
+#define LOAD_SL_INIT_POINTER(variable, name)                                      \
+  sprintf_s(key, "%s.%s", name, arch_suffix);                                   \
+  {                                                                               \
+    const PLATFORM_DWORD offset = INIReadDWordHex(*g_IniParser, sect, key, 0);    \
+    variable = offset ? reinterpret_cast<DWORD*>(TermSrvBase + offset) : nullptr; \
+  }
+    LOAD_SL_INIT_POINTER(bServerSku, "bServerSku");
+    LOAD_SL_INIT_POINTER(bRemoteConnAllowed, "bRemoteConnAllowed");
+    LOAD_SL_INIT_POINTER(bFUSEnabled, "bFUSEnabled");
+    LOAD_SL_INIT_POINTER(bAppServerAllowed, "bAppServerAllowed");
+    LOAD_SL_INIT_POINTER(bMultimonAllowed, "bMultimonAllowed");
+    LOAD_SL_INIT_POINTER(lMaxUserSessions, "lMaxUserSessions");
+    LOAD_SL_INIT_POINTER(ulMaxDebugSessions, "ulMaxDebugSessions");
+    LOAD_SL_INIT_POINTER(bInitialized, "bInitialized");
+#undef LOAD_SL_INIT_POINTER
   }
 
   if (bServerSku) {
@@ -451,9 +440,12 @@ void Hook() {
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.arm64", false);
 #elif defined(_M_ARM)
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.arm", false);
+#elif defined(_M_X64)
+    enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.x64", false);
+#elif defined(_M_IX86)
+    enabled = GetBoolFromIni(*g_IniParser, sect, "SLPolicyInternal.x86", false);
 #else
-    // x86/x64: SLPolicyInternal hook not applicable
-    enabled = false;
+#error Unsupported architecture
 #endif
     if (enabled) {
       WriteToLog("Hook SLGetWindowsInformationDWORDWrapper\r\n");
@@ -481,7 +473,12 @@ void Hook() {
       hookOffset = INIReadDWordHex(*g_IniParser, sect, "SLPolicyOffset.x86", 0);
       signPtr = TermSrvBase + hookOffset;
       jump.PushOp = 0x68;
-      jump.PushArg = (DWORD)New_Win8SL;
+      char policyFunc[64] = {0};
+      INIReadString(*g_IniParser, sect, "SLPolicyFunc.x86", "New_Win8SL",
+                    policyFunc, _countof(policyFunc));
+      jump.PushArg = strcmp(policyFunc, "New_Win8SL_CP") == 0
+                         ? reinterpret_cast<DWORD>(New_Win8SL_CP)
+                         : reinterpret_cast<DWORD>(New_Win8SL);
       jump.RetOp = 0xC3;
 #else
 #error Unsupported architecture
@@ -504,9 +501,12 @@ void Hook() {
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.arm64", false);
 #elif defined(_M_ARM)
     enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.arm", false);
+#elif defined(_M_X64)
+    enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.x64", false);
+#elif defined(_M_IX86)
+    enabled = GetBoolFromIni(*g_IniParser, sect, "SLInitHook.x86", false);
 #else
-    // x86/x64: SLInitHook hook not applicable
-    enabled = false;
+#error Unsupported architecture
 #endif
     if (enabled) {
       WriteToLog("Hook CSLQuery::Initialize\r\n");

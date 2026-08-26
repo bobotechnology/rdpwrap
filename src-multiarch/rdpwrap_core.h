@@ -140,7 +140,7 @@ bool OverrideSL(LPWSTR value_name, DWORD* value);
 HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
                                                 DWORD* pdwValue);
 HRESULT __fastcall New_Win8SL(PWSTR pwszValueName, DWORD* pdwValue);
-#if defined(_M_ARM) || defined(_M_ARM64)
+#if defined(_M_ARM) || defined(_M_IX86)
 HRESULT __fastcall New_Win8SL_CP(DWORD arg1,
                                  DWORD* pdwValue,
                                  PWSTR pwszValueName,
