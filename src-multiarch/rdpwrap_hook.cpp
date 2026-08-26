@@ -238,14 +238,20 @@ void Hook() {
                             configuredLogFileWide,
                             _countof(configuredLogFileWide)) > 0) {
       LPWSTR result = nullptr;
-      if (PathIsRelativeW(configuredLogFileWide)) {
-        result = PathCombineW(LogFile, moduleDir, configuredLogFileWide);
+      const wchar_t* logPath = configuredLogFileWide;
+      if (logPath[0] == L'\\' && logPath[1] != L'\\') {
+        ++logPath;
+      }
+      if (PathIsRelativeW(logPath)) {
+        result = PathCombineW(LogFile, moduleDir, logPath);
       } else {
-        result = wcscpy_s(LogFile, configuredLogFileWide) == 0 ? LogFile : nullptr;
+        result = wcscpy_s(LogFile, logPath) == 0 ? LogFile : nullptr;
       }
       if (!result) {
         PathCombineW(LogFile, moduleDir, L"rdpwrap.txt");
         WriteToLog("Warning: Invalid LogFile path; using default\r\n");
+      } else {
+        WriteLogFormat("Log file: %S\r\n", LogFile);
       }
     } else {
       WriteToLog("Warning: Failed to decode LogFile path; using default\r\n");
