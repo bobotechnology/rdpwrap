@@ -229,6 +229,29 @@ void Hook() {
     return;
   }
 
+  char configuredLogFile[MAX_PATH * 3] = {0};
+  INIReadString(*g_IniParser, "Main", "LogFile", "", configuredLogFile,
+                _countof(configuredLogFile));
+  if (configuredLogFile[0] != '\0') {
+    wchar_t configuredLogFileWide[MAX_PATH] = {0};
+    if (MultiByteToWideChar(CP_ACP, 0, configuredLogFile, -1,
+                            configuredLogFileWide,
+                            _countof(configuredLogFileWide)) > 0) {
+      LPWSTR result = nullptr;
+      if (PathIsRelativeW(configuredLogFileWide)) {
+        result = PathCombineW(LogFile, moduleDir, configuredLogFileWide);
+      } else {
+        result = wcscpy_s(LogFile, configuredLogFileWide) == 0 ? LogFile : nullptr;
+      }
+      if (!result) {
+        PathCombineW(LogFile, moduleDir, L"rdpwrap.txt");
+        WriteToLog("Warning: Invalid LogFile path; using default\r\n");
+      }
+    } else {
+      WriteToLog("Warning: Failed to decode LogFile path; using default\r\n");
+    }
+  }
+
   WORD ver = 0;
   PLATFORM_DWORD termSrvSize = 0;
   PLATFORM_DWORD signPtr = 0;
@@ -391,8 +414,10 @@ void Hook() {
   wsprintfA(sect, "%d.%d.%d.%d", FV.wVersion.Major, FV.wVersion.Minor,
             FV.Release, FV.Build);
 
-  if (g_IniParser->has_section(sect) &&
-      GetModuleCodeSectionInfo(hTermSrv, &TermSrvBase, &termSrvSize)) {
+  if (g_IniParser->has_section(sect)) {
+    if (!GetModuleCodeSectionInfo(hTermSrv, &TermSrvBase, &termSrvSize)) {
+      WriteToLog("Error: Failed to get termsrv.dll image information\r\n");
+    } else {
 #if defined(_M_ARM64)
     ApplyConfiguredPatch(*g_IniParser, sect, "LocalOnlyPatch.arm64",
                          "LocalOnlyOffset.arm64", "LocalOnlyCode.arm64",
@@ -490,7 +515,7 @@ void Hook() {
         }
       } else {
         WriteLogFormat(
-            "Warning: SLPolicy offset 0x%llX out of code range [0x%llX, 0x%llX)\r\n",
+            "Warning: SLPolicy offset 0x%llX out of image range [0x%llX, 0x%llX)\r\n",
             (ULONGLONG)signPtr,
             (ULONGLONG)TermSrvBase,
             (ULONGLONG)(TermSrvBase + termSrvSize));
@@ -546,14 +571,17 @@ void Hook() {
         }
       } else {
         WriteLogFormat(
-            "Warning: SLInit offset 0x%llX out of code range [0x%llX, 0x%llX)\r\n",
+            "Warning: SLInit offset 0x%llX out of image range [0x%llX, 0x%llX)\r\n",
             (ULONGLONG)signPtr,
             (ULONGLONG)TermSrvBase,
             (ULONGLONG)(TermSrvBase + termSrvSize));
       }
     }
+    }
+  } else {
+    WriteLogFormat("Warning: Configuration section %s not found\r\n", sect);
   }
 
-  WriteToLog("Resumimg threads...\r\n");
+  WriteToLog("Resuming threads...\r\n");
   SetThreadsState(true);
 }

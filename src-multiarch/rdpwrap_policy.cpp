@@ -10,6 +10,11 @@ bool OverrideSL(LPWSTR value_name, DWORD* value) {
     return false;
   }
 
+  if (!g_IniParser->has_section("SLPolicy") ||
+      !g_IniParser->has_option("SLPolicy", value_name_ansi)) {
+    return false;
+  }
+
   std::string val_str = IniGetRaw(*g_IniParser, "SLPolicy", value_name_ansi, "");
   if (val_str.empty()) {
     *value = 0;
@@ -40,7 +45,7 @@ HRESULT WINAPI New_SLGetWindowsInformationDWORD(PWSTR pwszValueName,
 
   HRESULT result = _SLGetWindowsInformationDWORD(pwszValueName, pdwValue);
   if (result == S_OK) {
-    WriteLogFormat("Policy result: %i\r\n", dw);
+    WriteLogFormat("Policy result: %i\r\n", *pdwValue);
   } else {
     WriteToLog("Policy request failed\r\n");
   }
@@ -71,7 +76,7 @@ HRESULT __fastcall New_Win8SL(PWSTR pwszValueName, DWORD* pdwValue) {
 
   HRESULT result = _SLGetWindowsInformationDWORD(pwszValueName, pdwValue);
   if (result == S_OK) {
-    WriteLogFormat("Policy result: %i\r\n", dw);
+    WriteLogFormat("Policy result: %i\r\n", *pdwValue);
   } else {
     WriteToLog("Policy request failed\r\n");
   }
