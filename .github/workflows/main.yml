@@ -65,6 +65,12 @@ jobs:
           if not any(re.fullmatch(r"\[\d+\.\d+\.\d+\.\d+\]", line) for line in lines):
               raise SystemExit("Invalid INI: no Terminal Services version sections")
 
+          # A trailing blank line from upstream would make the subsequent
+          # `git diff --check` fail with "new blank line at EOF", so drop it
+          # before canonicalizing line endings.
+          while lines and lines[-1] == "":
+              lines.pop()
+
           # Repository .gitattributes requires CRLF for *.ini. Canonicalizing
           # here prevents line-ending-only commits and also removes a UTF-8 BOM.
           path.write_bytes(("\r\n".join(lines) + "\r\n").encode("utf-8"))
